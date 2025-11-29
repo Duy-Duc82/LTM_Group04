@@ -1,234 +1,111 @@
-// dao_users.c
-#include "..\include\dao\dao_users.h"
-#include "..\include\db.h"
+// server/src/dao/dao_users.c
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include "db.h"
+#include "dao/dao_users.h"
 
-int dao_users_init() {
-    // insert user
-    if (!db_prepare(
-            "users_insert",
-            "INSERT INTO users (username, password, avatar_img) "
-            "VALUES ($1, $2, $3) RETURNING user_id",
-            3)) return 0;
+int dao_users_create(const char *username, const char *password, int64_t *out_user_id) {
+    if (!db_is_ok()) return -1;
 
-    // get by username
-    if (!db_prepare(
-            "users_get_by_username",
-            "SELECT user_id, username, password, COALESCE(avatar_img, '') "
-            "FROM users WHERE username = $1",
-            1)) return 0;
+    const char *sql =
+        "INSERT INTO users (username, password) "
+        "VALUES ($1, $2) RETURNING user_id;";
 
-    // get by id
-    if (!db_prepare(
-            "users_get_by_id",
-            "SELECT user_id, username, password, COALESCE(avatar_img, '') "
-            "FROM users WHERE user_id = $1",
-            1)) return 0;
+    const char *params[2] = { username, password };
+    int paramLengths[2]   = { (int)strlen(username), (int)strlen(password) };
+    int paramFormats[2]   = { 0, 0 };
 
-    // ensure user_stats
-    if (!db_prepare(
-            "user_stats_ensure",
-            "INSERT INTO user_stats (user_id) "
-            "VALUES ($1) "
-            "ON CONFLICT (user_id) DO NOTHING",
-            1)) return 0;
+    PGresult *res = PQexecParams(db_conn,
+                                 sql,
+                                 2,
+                                 NULL,
+                                 params,
+                                 paramLengths,
+                                 paramFormats,
+                                 0); // text
 
-    // get user_stats
-    if (!db_prepare(
-            "user_stats_get",
-            "SELECT user_id, quickmode_games, onevn_games, "
-            "       quickmode_wins, onevn_wins "
-            "FROM user_stats WHERE user_id = $1",
-            1)) return 0;
-
-    // inc quickmode stats
-    if (!db_prepare(
-            "user_stats_inc_quickmode",
-            "UPDATE user_stats "
-            "SET quickmode_games = quickmode_games + 1, "
-            "    quickmode_wins  = quickmode_wins  + $2 "
-            "WHERE user_id = $1",
-            2)) return 0;
-
-    // inc onevn stats
-    if (!db_prepare(
-            "user_stats_inc_onevn",
-            "UPDATE user_stats "
-            "SET onevn_games = onevn_games + 1, "
-            "    onevn_wins  = onevn_wins  + $2 "
-            "WHERE user_id = $1",
-            2)) return 0;
-
-    return 1;
-}
-
-int64_t dao_users_create(const char *username, const char *password_hash, const char *avatar_img) {
-    const char *params[3];
-    params[0] = username;
-    params[1] = password_hash;
-    params[2] = avatar_img ? avatar_img : "";
-
-    PGresult *res = db_exec_params("users_insert", 3, params);
-    if (!res) return 0;
-
-    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) != 1) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
+    if (PQresultStatus(res) == PGRES_FATAL_ERROR) {
+        // check trùng username (unique constraint)
+        const char *msg = PQerrorMessage(db_conn);
+        if (strstr(msg, "unique") && strstr(msg, "users_username_key")) {
+            PQclear(res);
+            return -2;
+        }
+        db_log_error(res, "dao_users_create failed");
+        return -1;
     }
 
-    int64_t user_id = db_get_int64(res, 0, 0);
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        db_log_error(res, "dao_users_create unexpected status");
+        return -1;
+    }
+
+    if (PQntuples(res) != 1) {
+        db_log_error(res, "dao_users_create no row returned");
+        return -1;
+    }
+
+    char *idstr = PQgetvalue(res, 0, 0);
+    if (out_user_id) {
+        *out_user_id = atoll(idstr);
+    }
+
     PQclear(res);
-
-    // đảm bảo có user_stats
-    dao_user_stats_ensure(user_id);
-
-    return user_id;
+    return 0;
 }
 
-static int fill_user_row(PGresult *res, int row, UserRow *out) {
-    if (!out) return 0;
-    out->user_id = db_get_int64(res, row, 0);
-    snprintf(out->username,   sizeof(out->username),   "%s", db_get_text(res, row, 1));
-    snprintf(out->password,   sizeof(out->password),   "%s", db_get_text(res, row, 2));
-    snprintf(out->avatar_img, sizeof(out->avatar_img), "%s", db_get_text(res, row, 3));
-    return 1;
-}
+int dao_users_find_by_username(const char *username, User *out_user) {
+    if (!db_is_ok()) return -1;
 
-int dao_users_get_by_username(const char *username, UserRow *out) {
+    const char *sql =
+        "SELECT user_id, username, password, COALESCE(avatar_img,'') "
+        "FROM users WHERE username = $1;";
+
     const char *params[1] = { username };
+    int paramLengths[1]   = { (int)strlen(username) };
+    int paramFormats[1]   = { 0 };
 
-    PGresult *res = db_exec_params("users_get_by_username", 1, params);
-    if (!res) return -1;
+    PGresult *res = PQexecParams(db_conn,
+                                 sql,
+                                 1,
+                                 NULL,
+                                 params,
+                                 paramLengths,
+                                 paramFormats,
+                                 0);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        db_print_error(res);
-        PQclear(res);
+        db_log_error(res, "dao_users_find_by_username failed");
         return -1;
     }
 
-    int rows = PQntuples(res);
-    if (rows == 0) {
+    int n = PQntuples(res);
+    if (n == 0) {
         PQclear(res);
-        return 0; // not found
+        return -1; // not found
     }
 
-    fill_user_row(res, 0, out);
+    if (out_user) {
+        memset(out_user, 0, sizeof(*out_user));
+        out_user->user_id = atoll(PQgetvalue(res, 0, 0));
+        strncpy(out_user->username, PQgetvalue(res, 0, 1), 32);
+        strncpy(out_user->password, PQgetvalue(res, 0, 2), 255);
+        strncpy(out_user->avatar_img, PQgetvalue(res, 0, 3), 512);
+    }
+
     PQclear(res);
-    return 1;
+    return 0;
 }
 
-int dao_users_get_by_id(int64_t user_id, UserRow *out) {
-    char buf_id[32];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
+int dao_users_check_password(const char *username, const char *password, int64_t *out_user_id) {
+    User u;
+    if (dao_users_find_by_username(username, &u) != 0) return 0; // not found
 
-    const char *params[1] = { buf_id };
-
-    PGresult *res = db_exec_params("users_get_by_id", 1, params);
-    if (!res) return -1;
-
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return -1;
+    // TODO: nếu dùng hash, thay bằng hàm verify
+    if (strcmp(u.password, password) == 0) {
+        if (out_user_id) *out_user_id = u.user_id;
+        return 1;
     }
-
-    int rows = PQntuples(res);
-    if (rows == 0) {
-        PQclear(res);
-        return 0;
-    }
-
-    fill_user_row(res, 0, out);
-    PQclear(res);
-    return 1;
-}
-
-int dao_user_stats_ensure(int64_t user_id) {
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%lld", (long long)user_id);
-    const char *params[1] = { buf };
-
-    PGresult *res = db_exec_params("user_stats_ensure", 1, params);
-    if (!res) return 0;
-
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
-    }
-
-    PQclear(res);
-    return 1;
-}
-
-int dao_user_stats_get(int64_t user_id, UserStatsRow *out) {
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%lld", (long long)user_id);
-    const char *params[1] = { buf };
-
-    PGresult *res = db_exec_params("user_stats_get", 1, params);
-    if (!res) return -1;
-
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return -1;
-    }
-
-    if (PQntuples(res) == 0) {
-        PQclear(res);
-        return 0;
-    }
-
-    if (out) {
-        out->user_id         = db_get_int64(res, 0, 0);
-        out->quickmode_games = db_get_int64(res, 0, 1);
-        out->onevn_games     = db_get_int64(res, 0, 2);
-        out->quickmode_wins  = db_get_int64(res, 0, 3);
-        out->onevn_wins      = db_get_int64(res, 0, 4);
-    }
-
-    PQclear(res);
-    return 1;
-}
-
-int dao_user_stats_inc_quickmode(int64_t user_id, int win) {
-    char buf_id[32], buf_win[8];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
-    snprintf(buf_win, sizeof(buf_win), "%d", win ? 1 : 0);
-
-    const char *params[2] = { buf_id, buf_win };
-
-    PGresult *res = db_exec_params("user_stats_inc_quickmode", 2, params);
-    if (!res) return 0;
-
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
-    }
-    PQclear(res);
-    return 1;
-}
-
-int dao_user_stats_inc_onevn(int64_t user_id, int win) {
-    char buf_id[32], buf_win[8];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
-    snprintf(buf_win, sizeof(buf_win), "%d", win ? 1 : 0);
-
-    const char *params[2] = { buf_id, buf_win };
-
-    PGresult *res = db_exec_params("user_stats_inc_onevn", 2, params);
-    if (!res) return 0;
-
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
-    }
-    PQclear(res);
-    return 1;
+    return 0;
 }

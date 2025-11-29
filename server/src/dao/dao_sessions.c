@@ -1,116 +1,146 @@
-// dao_sessions.c
-#include "..\include\dao\dao_sessions.h"
-#include "..\include\db.h"
+// server/src/dao/dao_sessions.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include "db.h"
+#include "dao/dao_sessions.h"
 
-int dao_sessions_init() {
-    // insert
-    if (!db_prepare(
-            "session_insert",
-            "INSERT INTO user_sessions (user_id, access_token, expires_at) "
-            "VALUES ($1, $2, $3) RETURNING id",
-            3)) return 0;
-
-    // validate
-    if (!db_prepare(
-            "session_validate",
-            "SELECT id FROM user_sessions "
-            "WHERE user_id = $1 AND access_token = $2 AND expires_at > NOW()",
-            2)) return 0;
-
-    // heartbeat
-    if (!db_prepare(
-            "session_heartbeat",
-            "UPDATE user_sessions "
-            "SET last_heartbeat = NOW() "
-            "WHERE user_id = $1 AND access_token = $2",
-            2)) return 0;
-
-    // delete
-    if (!db_prepare(
-            "session_delete",
-            "DELETE FROM user_sessions "
-            "WHERE user_id = $1 AND access_token = $2",
-            2)) return 0;
-
-    return 1;
-}
-
-int64_t dao_session_create(int64_t user_id, const char *access_token, const char *expires_at_iso) {
-    char buf_id[32];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
-
-    const char *params[3] = { buf_id, access_token, expires_at_iso };
-
-    PGresult *res = db_exec_params("session_insert", 3, params);
-    if (!res) return 0;
-
-    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) != 1) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
+// sinh chuỗi hex random 64 ký tự
+static void gen_token(char *buf, size_t len) {
+    static const char hex[] = "0123456789abcdef";
+    for (size_t i = 0; i < len - 1; ++i) {
+        unsigned v = rand() % 16;
+        buf[i] = hex[v];
     }
-
-    int64_t id = db_get_int64(res, 0, 0);
-    PQclear(res);
-    return id;
+    buf[len - 1] = '\0';
 }
 
-int dao_session_validate(int64_t user_id, const char *access_token) {
-    char buf_id[32];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
+int dao_sessions_create(int64_t user_id, int ttl_seconds, UserSession *out_sess) {
+    if (!db_is_ok()) return -1;
 
-    const char *params[2] = { buf_id, access_token };
+    char token[65];
+    gen_token(token, sizeof(token));
 
-    PGresult *res = db_exec_params("session_validate", 2, params);
-    if (!res) return -1;
+    const char *sql =
+        "INSERT INTO user_sessions (user_id, access_token, expires_at) "
+        "VALUES ($1, $2, NOW() + ($3 || ' seconds')::interval) "
+        "RETURNING id, user_id, access_token, EXTRACT(EPOCH FROM expires_at);";
+
+    char user_id_str[32], ttl_str[32];
+    snprintf(user_id_str, sizeof(user_id_str), "%lld", (long long)user_id);
+    snprintf(ttl_str, sizeof(ttl_str), "%d", ttl_seconds);
+
+    const char *params[3] = { user_id_str, token, ttl_str };
+    int paramLengths[3]   = { (int)strlen(user_id_str),
+                              (int)strlen(token),
+                              (int)strlen(ttl_str) };
+    int paramFormats[3]   = { 0,0,0 };
+
+    PGresult *res = PQexecParams(db_conn,
+                                 sql,
+                                 3,
+                                 NULL,
+                                 params,
+                                 paramLengths,
+                                 paramFormats,
+                                 0);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        db_print_error(res);
+        db_log_error(res, "dao_sessions_create failed");
+        return -1;
+    }
+
+    if (PQntuples(res) != 1) {
+        db_log_error(res, "dao_sessions_create no row");
+        return -1;
+    }
+
+    if (out_sess) {
+        memset(out_sess, 0, sizeof(*out_sess));
+        out_sess->id       = atoll(PQgetvalue(res, 0, 0));
+        out_sess->user_id  = atoll(PQgetvalue(res, 0, 1));
+        strncpy(out_sess->access_token, PQgetvalue(res, 0, 2), 64);
+        out_sess->expires_at = (time_t)atoll(PQgetvalue(res, 0, 3));
+    }
+
+    PQclear(res);
+    return 0;
+}
+
+int dao_sessions_find_by_token(const char *token, UserSession *out_sess) {
+    if (!db_is_ok()) return -1;
+
+    const char *sql =
+        "SELECT id, user_id, access_token, EXTRACT(EPOCH FROM expires_at) "
+        "FROM user_sessions WHERE access_token = $1;";
+
+    const char *params[1] = { token };
+    int paramLengths[1]   = { (int)strlen(token) };
+    int paramFormats[1]   = { 0 };
+
+    PGresult *res = PQexecParams(db_conn,
+                                 sql,
+                                 1,
+                                 NULL,
+                                 params,
+                                 paramLengths,
+                                 paramFormats,
+                                 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        db_log_error(res, "dao_sessions_find_by_token failed");
+        return -1;
+    }
+
+    if (PQntuples(res) == 0) {
         PQclear(res);
         return -1;
     }
 
-    int rows = PQntuples(res);
-    PQclear(res);
-
-    return rows > 0 ? 1 : 0;
-}
-
-int dao_session_heartbeat(int64_t user_id, const char *access_token) {
-    char buf_id[32];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
-    const char *params[2] = { buf_id, access_token };
-
-    PGresult *res = db_exec_params("session_heartbeat", 2, params);
-    if (!res) return 0;
-
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
+    if (out_sess) {
+        memset(out_sess, 0, sizeof(*out_sess));
+        out_sess->id       = atoll(PQgetvalue(res, 0, 0));
+        out_sess->user_id  = atoll(PQgetvalue(res, 0, 1));
+        strncpy(out_sess->access_token, PQgetvalue(res, 0, 2), 64);
+        out_sess->expires_at = (time_t)atoll(PQgetvalue(res, 0, 3));
     }
 
     PQclear(res);
-    return 1;
+    return 0;
 }
 
-int dao_session_delete(int64_t user_id, const char *access_token) {
-    char buf_id[32];
-    snprintf(buf_id, sizeof(buf_id), "%lld", (long long)user_id);
-    const char *params[2] = { buf_id, access_token };
+int dao_sessions_touch(const char *token, int ttl_seconds) {
+    if (!db_is_ok()) return -1;
 
-    PGresult *res = db_exec_params("session_delete", 2, params);
-    if (!res) return 0;
+    const char *sql =
+        "UPDATE user_sessions "
+        "SET last_heartbeat = NOW(), "
+        "    expires_at = NOW() + ($2 || ' seconds')::interval "
+        "WHERE access_token = $1;";
+
+    char ttl_str[32];
+    snprintf(ttl_str, sizeof(ttl_str), "%d", ttl_seconds);
+
+    const char *params[2] = { token, ttl_str };
+    int paramLengths[2]   = { (int)strlen(token), (int)strlen(ttl_str) };
+    int paramFormats[2]   = { 0,0 };
+
+    PGresult *res = PQexecParams(db_conn,
+                                 sql,
+                                 2,
+                                 NULL,
+                                 params,
+                                 paramLengths,
+                                 paramFormats,
+                                 0);
 
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        db_print_error(res);
-        PQclear(res);
-        return 0;
+        db_log_error(res, "dao_sessions_touch failed");
+        return -1;
     }
 
+    int affected = atoi(PQcmdTuples(res));
     PQclear(res);
-    return 1;
+    return affected > 0 ? 0 : -1;
 }

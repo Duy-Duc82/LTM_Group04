@@ -1,31 +1,24 @@
-// dao_sessions.h
+// server/include/dao/dao_sessions.h
 #ifndef DAO_SESSIONS_H
 #define DAO_SESSIONS_H
 
 #include <stdint.h>
+#include <time.h>
 
-/**
- * user_sessions:
- *  id           BIGINT PK
- *  user_id      BIGINT
- *  access_token CHAR(64) UNIQUE
- *  last_heartbeat TIMESTAMPTZ
- *  expires_at   TIMESTAMPTZ
- */
+typedef struct {
+    int64_t id;
+    int64_t user_id;
+    char    access_token[65]; // CHAR(64) + '\0'
+    time_t  expires_at;
+} UserSession;
 
-int dao_sessions_init();
+// tạo session mới cho user, gen token 64 hex char
+int dao_sessions_create(int64_t user_id, int ttl_seconds, UserSession *out_sess);
 
-// tạo session mới, trả về id; 0 nếu lỗi
-int64_t dao_session_create(int64_t user_id, const char *access_token, const char *expires_at_iso);
+// lấy theo token, 0=OK, -1=không thấy
+int dao_sessions_find_by_token(const char *token, UserSession *out_sess);
 
-// validate (user_id, token) còn hạn
-// 1 = ok, 0 = không có / hết hạn, -1 = lỗi
-int dao_session_validate(int64_t user_id, const char *access_token);
+// cập nhật last_heartbeat + expires_at (refresh)
+int dao_sessions_touch(const char *token, int ttl_seconds);
 
-// update last_heartbeat = NOW()
-int dao_session_heartbeat(int64_t user_id, const char *access_token);
-
-// xoá session (logout)
-int dao_session_delete(int64_t user_id, const char *access_token);
-
-#endif // DAO_SESSIONS_H
+#endif
