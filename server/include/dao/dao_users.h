@@ -17,6 +17,9 @@ int dao_users_create(const char *username, const char *password, int64_t *out_us
 // 0 nếu tìm thấy, -1 nếu không có
 int dao_users_find_by_username(const char *username, User *out_user);
 
+// find user by id, 0=OK, -1 if not found
+int dao_users_find_by_id(int64_t user_id, User *out_user);
+
 // auth: 1 = đúng, 0 = sai, <0 lỗi DB
 int dao_users_check_password(const char *username, const char *password, int64_t *out_user_id);
 

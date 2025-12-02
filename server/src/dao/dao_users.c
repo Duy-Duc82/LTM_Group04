@@ -99,6 +99,51 @@ int dao_users_find_by_username(const char *username, User *out_user) {
     return 0;
 }
 
+int dao_users_find_by_id(int64_t user_id, User *out_user) {
+    if (!db_is_ok()) return -1;
+
+    const char *sql =
+        "SELECT user_id, username, password, COALESCE(avatar_img,'') "
+        "FROM users WHERE user_id = $1;";
+
+    char idbuf[32];
+    snprintf(idbuf, sizeof(idbuf), "%lld", (long long)user_id);
+    const char *params[1] = { idbuf };
+    int paramLengths[1] = { (int)strlen(idbuf) };
+    int paramFormats[1] = { 0 };
+
+    PGresult *res = PQexecParams(db_conn,
+                                 sql,
+                                 1,
+                                 NULL,
+                                 params,
+                                 paramLengths,
+                                 paramFormats,
+                                 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        db_log_error(res, "dao_users_find_by_id failed");
+        return -1;
+    }
+
+    int n = PQntuples(res);
+    if (n == 0) {
+        PQclear(res);
+        return -1; // not found
+    }
+
+    if (out_user) {
+        memset(out_user, 0, sizeof(*out_user));
+        out_user->user_id = atoll(PQgetvalue(res, 0, 0));
+        strncpy(out_user->username, PQgetvalue(res, 0, 1), 32);
+        strncpy(out_user->password, PQgetvalue(res, 0, 2), 255);
+        strncpy(out_user->avatar_img, PQgetvalue(res, 0, 3), 512);
+    }
+
+    PQclear(res);
+    return 0;
+}
+
 int dao_users_check_password(const char *username, const char *password, int64_t *out_user_id) {
     User u;
     if (dao_users_find_by_username(username, &u) != 0) return 0; // not found
