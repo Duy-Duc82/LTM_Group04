@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "db.h"
+#include "../include/db.h"
 #include "dao/dao_users.h"
 
 int dao_users_create(const char *username, const char *password, int64_t *out_user_id) {
