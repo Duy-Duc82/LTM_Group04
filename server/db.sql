@@ -5,6 +5,11 @@
 -- =========================
 -- USERS & SESSIONS & STATS
 -- =========================
+
+DROP DATABASE IF EXISTS ltm_group04;
+CREATE DATABASE ltm_group04;
+\c ltm_group04;
+
 CREATE TABLE IF NOT EXISTS users (
   user_id       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   username      VARCHAR(32)  NOT NULL UNIQUE,
@@ -67,6 +72,7 @@ CREATE TABLE IF NOT EXISTS friends (
   friend_id  BIGINT NOT NULL,
   status     TEXT   NOT NULL CHECK (status IN ('PENDING','ACCEPTED','BLOCKED')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, friend_id),
   CONSTRAINT fk_friends_u1 FOREIGN KEY (user_id)   REFERENCES users(user_id) ON DELETE CASCADE,
   CONSTRAINT fk_friends_u2 FOREIGN KEY (friend_id) REFERENCES users(user_id) ON DELETE CASCADE,
@@ -193,7 +199,8 @@ CREATE INDEX IF NOT EXISTS idx_mh_user_played ON match_history(user_id, played_a
 CREATE TABLE IF NOT EXISTS room (
   room_id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   owner_id                 BIGINT NOT NULL,
-  status                   TEXT NOT NULL CHECK (status IN ('WAITING','IN_PROGRESS','FINISHED')),
+  mode                     TEXT NOT NULL CHECK (mode IN ('BASIC','ONEVN')) DEFAULT 'ONEVN',
+  status                   TEXT NOT NULL CHECK (status IN ('WAITING','PLAYING','FINISHED')),
   current_number_players   INT  NOT NULL DEFAULT 0,
   max_number_players       INT  NOT NULL DEFAULT 8,
   created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -226,6 +233,7 @@ CREATE INDEX IF NOT EXISTS idx_rinv_to_status ON room_invites(to_user_id, status
 CREATE TABLE IF NOT EXISTS room_members (
   room_id   BIGINT NOT NULL,
   user_id   BIGINT NOT NULL,
+  role      TEXT NOT NULL DEFAULT 'PLAYER',
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (room_id, user_id),
   CONSTRAINT fk_rmem_room FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE,
@@ -294,3 +302,59 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_1a_once ON onevn_answers(round_id, user_id)
 
 
 
+INSERT INTO question
+  (difficulty_level, content, op_a, op_b, op_c, op_d, correct_op, explanation)
+VALUES
+-- EASY
+('EASY',
+ 'Thủ đô của Việt Nam là thành phố nào?',
+ 'Hồ Chí Minh',
+ 'Hà Nội',
+ 'Đà Nẵng',
+ 'Huế',
+ 'B',
+ 'Thủ đô của Việt Nam hiện nay là Hà Nội.'),
+('EASY',
+ '"AI" trong "Trí tuệ nhân tạo (AI)" là viết tắt của cụm từ tiếng Anh nào?',
+ 'Artificial Intelligence',
+ 'Advanced Internet',
+ 'Automatic Interaction',
+ 'Algorithm Integration',
+ 'A',
+ '"AI" là viết tắt của "Artificial Intelligence" (Trí tuệ nhân tạo).'),
+
+-- MEDIUM
+('MEDIUM',
+ 'Ngôn ngữ lập trình nào sau đây thường được dùng để lập trình hệ điều hành Linux?',
+ 'Python',
+ 'Java',
+ 'C',
+ 'HTML',
+ 'C',
+ 'Nhân Linux được viết chủ yếu bằng ngôn ngữ C.'),
+('MEDIUM',
+ 'Giao thức nào sau đây hoạt động ở tầng Transport trong mô hình TCP/IP?',
+ 'IP',
+ 'TCP',
+ 'Ethernet',
+ 'ARP',
+ 'B',
+ 'TCP (Transmission Control Protocol) là giao thức tầng Transport.'),
+
+-- HARD
+('HARD',
+ 'Trong cơ sở dữ liệu quan hệ, ràng buộc đảm bảo giá trị một cột là duy nhất và không NULL được gọi là gì?',
+ 'FOREIGN KEY',
+ 'PRIMARY KEY',
+ 'UNIQUE KEY',
+ 'CHECK',
+ 'B',
+ 'PRIMARY KEY yêu cầu giá trị duy nhất và không được NULL.'),
+('HARD',
+ 'Trong mô hình OSI, giao thức HTTP chủ yếu tương ứng với tầng nào?',
+ 'Tầng Mạng (Network)',
+ 'Tầng Vật lý (Physical)',
+ 'Tầng Giao vận (Transport)',
+ 'Tầng Ứng dụng (Application)',
+ 'D',
+ 'HTTP là giao thức tầng Ứng dụng trong mô hình OSI.');

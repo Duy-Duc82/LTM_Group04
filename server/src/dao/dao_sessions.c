@@ -4,10 +4,26 @@
 #include <string.h>
 #include <time.h>
 #include "db.h"
+#include <openssl/rand.h>
 #include "dao/dao_sessions.h"
 
 // sinh chuỗi hex random 64 ký tự
 static void gen_token(char *buf, size_t len) {
+    // Expect len >= 65 (64 hex chars + '\0')
+    if (len < 65) return;
+
+    unsigned char rnd[32];
+    if (RAND_bytes(rnd, sizeof(rnd)) == 1) {
+        static const char hex[] = "0123456789abcdef";
+        for (size_t i = 0; i < sizeof(rnd); ++i) {
+            buf[i*2]   = hex[(rnd[i] >> 4) & 0xF];
+            buf[i*2+1] = hex[rnd[i] & 0xF];
+        }
+        buf[64] = '\0';
+        return;
+    }
+
+    // fallback to rand() if RAND_bytes fails
     static const char hex[] = "0123456789abcdef";
     for (size_t i = 0; i < len - 1; ++i) {
         unsigned v = rand() % 16;
@@ -19,9 +35,6 @@ static void gen_token(char *buf, size_t len) {
 int dao_sessions_create(int64_t user_id, int ttl_seconds, UserSession *out_sess) {
     if (!db_is_ok()) return -1;
 
-    char token[65];
-    gen_token(token, sizeof(token));
-
     const char *sql =
         "INSERT INTO user_sessions (user_id, access_token, expires_at) "
         "VALUES ($1, $2, NOW() + ($3 || ' seconds')::interval) "
@@ -31,28 +44,62 @@ int dao_sessions_create(int64_t user_id, int ttl_seconds, UserSession *out_sess)
     snprintf(user_id_str, sizeof(user_id_str), "%lld", (long long)user_id);
     snprintf(ttl_str, sizeof(ttl_str), "%d", ttl_seconds);
 
-    const char *params[3] = { user_id_str, token, ttl_str };
-    int paramLengths[3]   = { (int)strlen(user_id_str),
-                              (int)strlen(token),
-                              (int)strlen(ttl_str) };
-    int paramFormats[3]   = { 0,0,0 };
+    const char *params[3];
 
-    PGresult *res = PQexecParams(db_conn,
-                                 sql,
-                                 3,
-                                 NULL,
-                                 params,
-                                 paramLengths,
-                                 paramFormats,
-                                 0);
 
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+    // Try generating a token and inserting. On unique constraint violation (duplicate token)
+    // retry a few times instead of failing immediately.
+    const int MAX_TRIES = 8;
+    PGresult *res = NULL;
+    int try;
+    for (try = 0; try < MAX_TRIES; ++try) {
+        char token[65];
+        gen_token(token, sizeof(token));
+        params[0] = user_id_str;
+        params[1] = token;
+        params[2] = ttl_str;
+
+        int paramLengthsLocal[3] = { (int)strlen(user_id_str), (int)strlen(token), (int)strlen(ttl_str) };
+        int paramFormatsLocal[3] = { 0, 0, 0 };
+
+        res = PQexecParams(db_conn,
+                           sql,
+                           3,
+                           NULL,
+                           params,
+                           paramLengthsLocal,
+                           paramFormatsLocal,
+                           0);
+
+        if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+            // success
+            break;
+        }
+
+        // If unique constraint on access_token -> retry with a new token
+        const char *sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+        if (sqlstate && strcmp(sqlstate, "23505") == 0) {
+            // duplicate key, try again
+            PQclear(res);
+            res = NULL;
+            continue;
+        }
+
+        // other error -> log and return
         db_log_error(res, "dao_sessions_create failed");
+        PQclear(res);
+        return -1;
+    }
+
+    if (!res) {
+        // exhausted tries
+        fprintf(stderr, "dao_sessions_create: exhausted token generation attempts\n");
         return -1;
     }
 
     if (PQntuples(res) != 1) {
         db_log_error(res, "dao_sessions_create no row");
+        PQclear(res);
         return -1;
     }
 

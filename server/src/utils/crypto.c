@@ -63,9 +63,10 @@ int util_password_verify(const char *password, const char *stored) {
     size_t salt_bytes_len = salt_len / 2;
     unsigned char salt[32];
     for (size_t i = 0; i < salt_bytes_len; ++i) {
-        unsigned int hi, lo;
-        if (sscanf(salt_hex + i*2, "%2x%2x", &hi, &lo) != 2) return -1;
-        salt[i] = (unsigned char)((hi << 4) | lo);
+        unsigned int v;
+        // parse two hex chars (one byte)
+        if (sscanf(salt_hex + i*2, "%2x", &v) != 1) return -1;
+        salt[i] = (unsigned char)v;
     }
 
     // compute hash(salt + password)

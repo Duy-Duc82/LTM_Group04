@@ -19,10 +19,30 @@ int main(void) {
     r = auth_signup("alice", "123");
     printf("Signup result: %d\n", r);
 
-    printf("== TEST LOGIN ==\n");
-    r = auth_login("alice", "123", &sess);
+    printf("== TEST SIGNUP ==\n");
+    r = auth_signup("bob", "1235");
+    printf("Signup result: %d\n", r);
+
+    // Interactive login test
+    printf("== TEST LOGIN (interactive) ==\n");
+    char userbuf[128];
+    char passbuf[128];
+    printf("Username: ");
+    if (!fgets(userbuf, sizeof(userbuf), stdin)) {
+        db_disconnect();
+        return 1;
+    }
+    if (userbuf[strlen(userbuf)-1] == '\n') userbuf[strlen(userbuf)-1] = '\0';
+    printf("Password: ");
+    if (!fgets(passbuf, sizeof(passbuf), stdin)) {
+        db_disconnect();
+        return 1;
+    }
+    if (passbuf[strlen(passbuf)-1] == '\n') passbuf[strlen(passbuf)-1] = '\0';
+
+    r = auth_login(userbuf, passbuf, &sess);
     if (r == AUTH_OK) {
-        printf("Login OK, token=%s\n", sess.access_token);
+        printf("Login OK, token=%s user_id=%lld\n", sess.access_token, (long long)sess.user_id);
     } else {
         printf("Login FAIL, code=%d\n", r);
     }
