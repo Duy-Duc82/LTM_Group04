@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "db.h"
 #include "dao/dao_chat.h"
+#include <stdlib.h>
+#include <string.h>
+
 
 int main(void) {
     if (db_init() != 0) {

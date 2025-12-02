@@ -7,6 +7,14 @@
 #include "dao/dao_chat.h"
 #include "dao/dao_rooms.h"
 #include "service/protocol.h"
+#include "utils/json.h"
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+
+
 
 void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *payload, uint32_t payload_len) {
     uint8_t major = (cmd & 0xFF00) >> 8;
@@ -22,7 +30,8 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
             switch (cmd) {
                 case 0x0201: { // REQ_ADD_FRIEND
                     // parse payload: { "friend_id": 123 }
-                    int64_t friend_id = /* TODO parse */ 0;
+                    long long friend_id = 0;
+                    util_json_get_int64(payload, "friend_id", &friend_id);
                     if (dao_friends_send_request(sess->user_id, friend_id) == 0) {
                         protocol_send_simple_ok(sess, 0x0202); // RES_ADD_FRIEND
                     } else {
@@ -30,8 +39,11 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     }
                 } break;
                 case 0x0204: { // REQ_RESPOND_FRIEND
-                    int64_t from_user = /* parse */ 0;
-                    int accept = /* parse */ 1;
+                    long long from_user = 0;
+                    long long accept_ll = 0;
+                    util_json_get_int64(payload, "from_user", &from_user);
+                    util_json_get_int64(payload, "accept", &accept_ll);
+                    int accept = accept_ll ? 1 : 0;
                     if (dao_friends_respond_request(from_user, sess->user_id, accept) == 0) {
                         protocol_send_simple_ok(sess, 0x0205); // RES_RESPOND_FRIEND
                     } else {
@@ -56,9 +68,9 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
         case 0x03: // Chat
             switch (cmd) {
                 case 0x0301: { // REQ_SEND_DM
-                    int64_t to_user = 0;
-                    const char *msg = NULL;
-                    // TODO parse JSON
+                    long long to_user = 0;
+                    util_json_get_int64(payload, "to_user", &to_user);
+                    char *msg = util_json_get_string(payload, "content");
                     if (dao_chat_send_dm(sess->user_id, to_user, msg) == 0) {
                         protocol_send_simple_ok(sess, 0x0302); // RES_SEND_DM
                         // Đồng thời push NOTIFY_DM cho người nhận (nếu online)
@@ -66,17 +78,19 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     } else {
                         protocol_send_error(sess, 0x0302, "SEND_DM_FAILED");
                     }
+                    if (msg) free(msg);
                 } break;
                 case 0x0304: { // REQ_SEND_ROOM_CHAT
-                    int64_t room_id = 0;
-                    const char *msg = NULL;
-                    // TODO parse JSON
+                    long long room_id = 0;
+                    util_json_get_int64(payload, "room_id", &room_id);
+                    char *msg = util_json_get_string(payload, "content");
                     if (dao_chat_send_room(sess->user_id, room_id, msg) == 0) {
                         protocol_send_simple_ok(sess, 0x0305);
                         // broadcast NOTIFY_ROOM_CHAT cho các member trong room
                     } else {
                         protocol_send_error(sess, 0x0305, "SEND_ROOM_CHAT_FAILED");
                     }
+                    if (msg) free(msg);
                 } break;
                 case 0x0307: { // REQ_FETCH_OFFLINE
                     void *json_msgs = NULL;
@@ -109,7 +123,8 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     }
                 } break;
                 case 0x0403: { // REQ_JOIN_ROOM
-                    int64_t room_id = 0; // parse
+                    long long room_id = 0; // parse
+                    util_json_get_int64(payload, "room_id", &room_id);
                     if (dao_rooms_join(room_id, sess->user_id, 0) == 0) {
                         protocol_send_simple_ok(sess, 0x0404);
                         // broadcast NOTIFY_ROOM_UPDATE cho các member
@@ -118,7 +133,8 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     }
                 } break;
                 case 0x040A: { // REQ_LEAVE_ROOM
-                    int64_t room_id = 0; // parse
+                    long long room_id = 0; // parse
+                    util_json_get_int64(payload, "room_id", &room_id);
                     if (dao_rooms_leave(room_id, sess->user_id) == 0) {
                         protocol_send_simple_ok(sess, 0x040B);
                     } else {

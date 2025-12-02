@@ -1,6 +1,9 @@
 // server/src/db.c
 #include <stdio.h>
 #include "../include/db.h"
+#include <stdlib.h>
+#include <libpq-fe.h>
+
 
 PGconn *db_conn = NULL;
 
@@ -31,4 +34,21 @@ int db_is_ok(void) {
 void db_log_error(PGresult *res, const char *msg) {
     fprintf(stderr, "[DB] %s: %s\n", msg, PQerrorMessage(db_conn));
     if (res) PQclear(res);
+}
+
+PGconn *db_get_conn(void) {
+    return db_conn;
+}
+
+int db_init(void) {
+    const char *conn = getenv("DB_CONN");
+    if (!conn) {
+        fprintf(stderr, "Please set DB_CONN environment variable!\n");
+        return -1;
+    }
+    return db_connect(conn);
+}
+
+void db_close(void) {
+    db_disconnect();
 }

@@ -3,6 +3,7 @@
 #include <libpq-fe.h>
 #include "../include/db.h"
 #include "dao/dao_friends.h"
+#include "utils/json.h"
 
 // Convert enum -> text
 static const char *friend_status_to_str(friend_status_t st) {
@@ -94,11 +95,48 @@ int dao_friends_list(int64_t user_id, void **result_json) {
     }
 
     int rows = PQntuples(res);
-    // TODO: build JSON array từ result; hiện thời mình chỉ demo kiểu trả text.
-    // Bạn có thể thay bằng jansson.
-    // Gợi ý: lưu JSON string vào *result_json, service sẽ free.
+    // Build JSON array
+    size_t cap = 256;
+    size_t used = 0;
+    char *out = malloc(cap);
+    if (!out) { PQclear(res); return -1; }
+    out[used++] = '[';
+
+    for (int i = 0; i < rows; ++i) {
+        const char *uid = PQgetvalue(res, i, 0);
+        const char *uname = PQgetvalue(res, i, 1);
+        const char *status = PQgetvalue(res, i, 2);
+
+        char *esc_name = util_json_escape(uname);
+        if (!esc_name) esc_name = strdup("");
+
+        // estimate needed
+        int need = snprintf(NULL, 0, "{\"user_id\": %s, \"username\": \"%s\", \"status\": \"%s\"}", uid, esc_name, status);
+        if (used + (size_t)need + 3 >= cap) {
+            cap = (used + (size_t)need + 3) * 2;
+            char *tmp = realloc(out, cap);
+            if (!tmp) { free(out); free(esc_name); PQclear(res); return -1; }
+            out = tmp;
+        }
+
+        if (i > 0) out[used++] = ',';
+        used += snprintf(out + used, cap - used, "{\"user_id\": %s, \"username\": \"%s\", \"status\": \"%s\"}", uid, esc_name, status);
+
+        free(esc_name);
+    }
+
+    if (used + 2 >= cap) {
+        char *tmp = realloc(out, used + 2);
+        if (!tmp) { free(out); PQclear(res); return -1; }
+        out = tmp;
+        cap = used + 2;
+    }
+    out[used++] = ']';
+    out[used] = '\0';
+
+    *result_json = out;
     PQclear(res);
-    return rows;
+    return 0;
 }
 
 int dao_friends_update_status(int64_t user_id, int64_t friend_id, friend_status_t status) {

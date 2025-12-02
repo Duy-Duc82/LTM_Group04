@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <libpq-fe.h>
 #include "db.h"
+#include "utils/json.h"
 #include "dao/dao_rooms.h"
 
 static const char *room_mode_to_str(room_mode_t m) {
@@ -26,7 +27,7 @@ int dao_rooms_create(int64_t owner_id, room_mode_t mode, int64_t *out_room_id) {
     if (!conn) return -1;
 
     const char *sql =
-        "INSERT INTO rooms (owner_id, mode, status) "
+        "INSERT INTO room (owner_id, mode, status) "
         "VALUES ($1, $2, 'WAITING') RETURNING room_id;";
 
     char buf_owner[32];
@@ -121,7 +122,42 @@ int dao_rooms_get_members(int64_t room_id, void **result_json) {
         return -1;
     }
 
-    // TODO: build JSON array
+    int rows = PQntuples(res);
+    size_t cap = 256; size_t used = 0;
+    char *out = malloc(cap);
+    if (!out) { PQclear(res); return -1; }
+    out[used++] = '[';
+
+    for (int i = 0; i < rows; ++i) {
+        const char *uid = PQgetvalue(res, i, 0);
+        const char *uname = PQgetvalue(res, i, 1);
+        const char *role = PQgetvalue(res, i, 2);
+
+        char *esc = util_json_escape(uname);
+        if (!esc) esc = strdup("");
+
+        int need = snprintf(NULL, 0, "{\"user_id\": %s, \"username\": \"%s\", \"role\": \"%s\"}", uid, esc, role);
+        if (used + (size_t)need + 3 >= cap) {
+            cap = (used + (size_t)need + 3) * 2;
+            char *tmp = realloc(out, cap);
+            if (!tmp) { free(out); free(esc); PQclear(res); return -1; }
+            out = tmp;
+        }
+
+        if (i > 0) out[used++] = ',';
+        used += snprintf(out + used, cap - used, "{\"user_id\": %s, \"username\": \"%s\", \"role\": \"%s\"}", uid, esc, role);
+
+        free(esc);
+    }
+
+    if (used + 2 >= cap) {
+        char *tmp = realloc(out, used + 2);
+        if (!tmp) { free(out); PQclear(res); return -1; }
+        out = tmp; cap = used + 2;
+    }
+    out[used++] = ']'; out[used] = '\0';
+
+    *result_json = out;
     PQclear(res);
     return 0;
 }

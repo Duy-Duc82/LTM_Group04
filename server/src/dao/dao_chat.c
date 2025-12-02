@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <libpq-fe.h>
 #include "db.h"
+#include "utils/json.h"
 #include "dao/dao_chat.h"
 
 int dao_chat_send_dm(int64_t sender_id, int64_t receiver_id, const char *content) {
@@ -73,7 +74,44 @@ int dao_chat_fetch_offline(int64_t user_id, void **result_json) {
         return -1;
     }
 
-    // TODO: build JSON array
+    int rows = PQntuples(res);
+    size_t cap = 256; size_t used = 0;
+    char *out = malloc(cap);
+    if (!out) { PQclear(res); return -1; }
+    out[used++] = '[';
+
+    for (int i = 0; i < rows; ++i) {
+        const char *msg_id = PQgetvalue(res, i, 0);
+        const char *sender = PQgetvalue(res, i, 1);
+        const char *content = PQgetvalue(res, i, 2);
+        const char *created = PQgetvalue(res, i, 3);
+
+        char *esc = util_json_escape(content);
+        if (!esc) esc = strdup("");
+
+        int need = snprintf(NULL, 0, "{\"msg_id\": %s, \"sender_id\": %s, \"content\": \"%s\", \"created_at\": \"%s\"}", msg_id, sender, esc, created);
+        if (used + (size_t)need + 3 >= cap) {
+            cap = (used + (size_t)need + 3) * 2;
+            char *tmp = realloc(out, cap);
+            if (!tmp) { free(out); free(esc); PQclear(res); return -1; }
+            out = tmp;
+        }
+
+        if (i > 0) out[used++] = ',';
+        used += snprintf(out + used, cap - used, "{\"msg_id\": %s, \"sender_id\": %s, \"content\": \"%s\", \"created_at\": \"%s\"}", msg_id, sender, esc, created);
+
+        free(esc);
+    }
+
+    if (used + 2 >= cap) {
+        char *tmp = realloc(out, used + 2);
+        if (!tmp) { free(out); PQclear(res); return -1; }
+        out = tmp; cap = used + 2;
+    }
+    out[used++] = ']'; out[used] = '\0';
+
+    *result_json = out;
+
     PQclear(res);
     return 0;
 }

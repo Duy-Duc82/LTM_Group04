@@ -3,6 +3,8 @@
 #include "dao/dao_question.h"
 #include "dao/dao_quickmode.h"
 #include "service/quickmode_service.h"
+#include "service/protocol.h"
+#include "service/client_session.h"
 #include <inttypes.h>
 
 int qm_debug_start(int64_t user_id) {
@@ -38,4 +40,10 @@ int qm_debug_start(int64_t user_id) {
     printf("Correct: %s\n", q.correct_op);
 
     return 0;
+}
+
+void quickmode_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint32_t payload_len) {
+    (void)payload_len; (void)payload;
+    // Minimal placeholder: return error for unknown commands
+    protocol_send_error(sess, cmd, "QUICKMODE_NOT_IMPLEMENTED");
 }

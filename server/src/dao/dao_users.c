@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include "../include/db.h"
 #include "dao/dao_users.h"
+#include "utils/crypto.h"
 
 int dao_users_create(const char *username, const char *password, int64_t *out_user_id) {
     if (!db_is_ok()) return -1;
@@ -12,8 +13,16 @@ int dao_users_create(const char *username, const char *password, int64_t *out_us
         "INSERT INTO users (username, password) "
         "VALUES ($1, $2) RETURNING user_id;";
 
-    const char *params[2] = { username, password };
-    int paramLengths[2]   = { (int)strlen(username), (int)strlen(password) };
+    // hash password before storing
+    char hashed[128];
+    if (util_password_hash(password, hashed, sizeof(hashed)) != 0) {
+        // if hashing fails, store plaintext (fallback)
+        strncpy(hashed, password, sizeof(hashed)-1);
+        hashed[sizeof(hashed)-1] = '\0';
+    }
+
+    const char *params[2] = { username, hashed };
+    int paramLengths[2]   = { (int)strlen(username), (int)strlen(hashed) };
     int paramFormats[2]   = { 0, 0 };
 
     PGresult *res = PQexecParams(db_conn,
@@ -102,7 +111,17 @@ int dao_users_check_password(const char *username, const char *password, int64_t
     User u;
     if (dao_users_find_by_username(username, &u) != 0) return 0; // not found
 
-    // TODO: nếu dùng hash, thay bằng hàm verify
+    // If stored password contains salt (format salt$hash) we verify with util_password_verify
+    if (strchr(u.password, '$')) {
+        int ok = util_password_verify(password, u.password);
+        if (ok == 1) {
+            if (out_user_id) *out_user_id = u.user_id;
+            return 1;
+        }
+        return 0;
+    }
+
+    // legacy plaintext
     if (strcmp(u.password, password) == 0) {
         if (out_user_id) *out_user_id = u.user_id;
         return 1;

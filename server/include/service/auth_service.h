@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include "dao/dao_sessions.h"
+#include "service/client_session.h"
 
 typedef enum {
     AUTH_OK = 0,
@@ -15,5 +16,8 @@ typedef enum {
 AuthResult auth_signup(const char *username, const char *password);
 AuthResult auth_login(const char *username, const char *password,
                       UserSession *out_session);
+
+// Dispatcher for auth-related commands (REQ_REGISTER, REQ_LOGIN)
+void auth_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint32_t payload_len);
 
 #endif

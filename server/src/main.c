@@ -4,6 +4,8 @@
 #include "db.h"
 #include "service/auth_service.h"
 #include "service/quickmode_service.h"
+#include "service/server.h"
+#include <string.h>
 
 int main() {
     const char *conn = getenv("DB_CONN");
@@ -18,6 +20,16 @@ int main() {
     }
 
     printf("=== SERVER STARTED ===\n");
+
+    // If running as server: start runtime loop
+    const char *server_mode = getenv("SERVER_MODE");
+    if (server_mode && strcmp(server_mode, "1") == 0) {
+        const char *port = getenv("SERVER_PORT");
+        if (!port) port = "9000";
+        start_server(NULL, port);
+        db_disconnect();
+        return 0;
+    }
 
     // Sample test: signup + login
     UserSession session;
