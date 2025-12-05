@@ -2,11 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Simple JSON string escaper: escapes backslash, quote, newline, and control chars
+
 char *util_json_escape(const char *s) {
     if (!s) return NULL;
     size_t len = strlen(s);
-    // worst-case each char becomes 2 chars (escape), plus closing NUL
     size_t out_cap = len * 2 + 1;
     char *out = malloc(out_cap);
     if (!out) return NULL;
@@ -20,7 +19,6 @@ char *util_json_escape(const char *s) {
             case '\t': out[o++] = '\\'; out[o++] = 't'; break;
             default:
                 if (c < 0x20) {
-                    // encode as \u00XX
                     const char *hex = "0123456789abcdef";
                     if (o + 6 >= out_cap) {
                         // expand

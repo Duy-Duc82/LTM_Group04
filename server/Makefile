@@ -27,7 +27,8 @@ SERVICE_OBJS = \
 
 UTIL_OBJS = \
     src/utils/crypto.o \
-    src/utils/json.o
+    src/utils/json.o \
+    src/utils/timer.o
 
 DB_OBJS = src/db.o
 

@@ -3,6 +3,7 @@
 #include "dao/dao_question.h"
 #include "dao/dao_quickmode.h"
 #include "service/quickmode_service.h"
+#include "service/commands.h"
 #include "service/protocol.h"
 #include "service/client_session.h"
 #include <inttypes.h>
