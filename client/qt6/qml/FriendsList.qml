@@ -375,6 +375,18 @@ Item {
         }
     }
     
+    // Reload when screen becomes visible (when navigating back from other screens)
+    onVisibleChanged: {
+        if (visible) {
+            console.log("FriendsList became visible, reloading friends list...")
+            var nc = networkClient
+            if (nc) {
+                nc.sendListFriends()
+                nc.sendGetPendingRequests()
+            }
+        }
+    }
+    
     // Background
     Rectangle {
         anchors.fill: parent
@@ -710,48 +722,6 @@ Item {
                             }
                         }
                         
-                        // Chat button (for friends)
-                        Button {
-                            Layout.preferredWidth: 40
-                            Layout.preferredHeight: 40
-                            Layout.alignment: Qt.AlignVCenter
-                            text: "💬"
-                            font.pixelSize: 18
-                            flat: true
-                            visible: modelData.isFriend
-                            z: 10  // Ensure button is above MouseArea
-                            
-                            background: Rectangle {
-                                color: parent.hovered ? Qt.rgba(1.0, 1.0, 1.0, 0.2) : "transparent"
-                                radius: 8
-                            }
-                            
-                            onClicked: {
-                                var friendId = modelData.id || modelData.userId || 0
-                                
-                                // Reset unread badge immediately (before push to avoid delay)
-                                for (var i = 0; i < allFriends.length; i++) {
-                                    if (allFriends[i].id === friendId || allFriends[i].userId === friendId) {
-                                        allFriends[i].hasUnreadMessages = false
-                                        var newList = allFriends.slice()
-                                        allFriends = newList
-                                        filterFriends(searchTextField.text)
-                                        break
-                                    }
-                                }
-                                
-                                // Open chat
-                                if (stackView) {
-                                    stackView.push("ChatScreen.qml", {
-                                        "stackView": stackView,
-                                        "username": username,
-                                        "friendId": friendId,
-                                        "friendName": modelData.username
-                                    })
-                                }
-                            }
-                        }
-                        
                         // Delete friend button (only for friends)
                         Button {
                             Layout.preferredWidth: 40
@@ -825,18 +795,31 @@ Item {
                     MouseArea {
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.rightMargin: 120  // Leave space for buttons on the right
+                        anchors.rightMargin: 80  // Leave space for buttons on the right (only delete/add button now)
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         z: 0  // Ensure MouseArea is below buttons
                         onClicked: {
                             // Only open chat if clicking on the row itself, not on buttons
                             if (modelData.isFriend) {
+                                var friendId = modelData.id || modelData.userId || 0
+                                
+                                // Reset unread badge immediately (before push to avoid delay)
+                                for (var i = 0; i < allFriends.length; i++) {
+                                    if (allFriends[i].id === friendId || allFriends[i].userId === friendId) {
+                                        allFriends[i].hasUnreadMessages = false
+                                        var newList = allFriends.slice()
+                                        allFriends = newList
+                                        filterFriends(searchTextField.text)
+                                        break
+                                    }
+                                }
+                                
                                 if (stackView) {
                                     stackView.push("ChatScreen.qml", {
                                         "stackView": stackView,
                                         "username": username,
-                                        "friendId": modelData.id,
+                                        "friendId": friendId,
                                         "friendName": modelData.username
                                     })
                                 }

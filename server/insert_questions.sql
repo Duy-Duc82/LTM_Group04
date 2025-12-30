@@ -77,6 +77,6 @@ VALUES
 ('HARD', 'Trong mạng, giao thức nào dùng để trao đổi thông tin routing giữa các router?', 'OSPF', 'HTTP', 'FTP', 'SMTP', 'A', 'OSPF (Open Shortest Path First) là giao thức routing.'),
 ('HARD', 'Trong database, index nào phù hợp cho full-text search?', 'B-tree', 'Hash', 'Bitmap', 'Full-text Index', 'D', 'Full-text Index được thiết kế đặc biệt cho full-text search.'),
 ('HARD', 'Trong lập trình, từ khóa "async" trong JavaScript có tác dụng gì?', 'Tạo hàm đồng bộ', 'Tạo hàm bất đồng bộ', 'Tạo promise', 'Tạo callback', 'B', 'Từ khóa "async" tạo hàm bất đồng bộ, tự động trả về Promise.'),
-('HARD', 'Trong mạng, giao thức nào dùng để mã hóa kết nối SSH?', 'AES', 'RSA', 'SSL/TLS', 'Cả A và C', 'D', 'SSH sử dụng cả AES (symmetric) và RSA (asymmetric) để mã hóa.'),
+('HARD', 'Trong mạng, giao thức nào dùng để mã hóa kết nối SSH?', 'AES', '', 'SSL/TLS', 'Cả A và C', 'D', 'SSH sử dụng cả AES (symmetric) và RSA (asymmetric) để mã hóa.'),
 ('HARD', 'Trong database, isolation level nào đảm bảo không có phantom reads?', 'READ COMMITTED', 'REPEATABLE READ', 'SERIALIZABLE', 'Cả B và C', 'C', 'SERIALIZABLE là isolation level cao nhất, đảm bảo không có phantom reads.'),
 ('HARD', 'Trong lập trình, thuật toán nào dùng để tìm đường đi ngắn nhất trong đồ thị có trọng số?', 'BFS', 'DFS', 'Dijkstra', 'A*', 'C', 'Dijkstra algorithm dùng để tìm đường đi ngắn nhất trong đồ thị có trọng số không âm.');

@@ -13,6 +13,9 @@ Item {
     property int points: 0
     property string rank: "Bronze"
     
+    // Unread messages tracking
+    property bool hasUnreadMessages: false
+    
     // Avatar data
     property string avatarPath: ""
     property string avatarSource: {
@@ -628,10 +631,38 @@ Item {
                         anchors.centerIn: parent
                         spacing: 4
                         
-                        Text {
+                        Item {
+                            width: 24
+                            height: 24
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "👥"
-                            font.pixelSize: 24
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: "👥"
+                                font.pixelSize: 24
+                            }
+                            
+                            // Unread message badge
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.rightMargin: -4
+                                anchors.topMargin: -4
+                                width: 12
+                                height: 12
+                                radius: 6
+                                color: "#FF5252"
+                                visible: hasUnreadMessages
+                                
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "!"
+                                    font.family: "Lexend"
+                                    font.pixelSize: 8
+                                    font.bold: true
+                                    color: "#FFFFFF"
+                                }
+                            }
                         }
                         
                         Text {
@@ -646,6 +677,9 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
+                            // Reset unread badge when opening FriendsList
+                            hasUnreadMessages = false
+                            
                             if (stackView) {
                                 stackView.push("FriendsList.qml", {
                                     "stackView": stackView,
@@ -745,6 +779,14 @@ Item {
             if (profile.avatar_img && profile.avatar_img !== "") {
                 avatarPath = profile.avatar_img
             }
+        }
+        
+        function onDmReceived(fromUserId, fromUsername, message, timestamp) {
+            console.log("=== HomeScreen: dmReceived ===")
+            console.log("From:", fromUserId, "Message:", message)
+            
+            // Set unread messages flag for footer badge
+            hasUnreadMessages = true
         }
     }
     

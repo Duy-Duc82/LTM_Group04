@@ -41,8 +41,7 @@ Item {
                     username: username,
                     online: isOnline,
                     onlineStatus: onlineStatus,
-                    status: status,
-                    hasUnreadMessages: false  // Badge indicator for unread messages
+                    status: status
                 })
             }
             friendsList = tempList
@@ -73,31 +72,6 @@ Item {
                 console.log("Friends list updated, friend", userId, "is now", status)
             } else {
                 console.log("Friend", userId, "not found in friends list")
-            }
-        }
-        
-        function onDmReceived(fromUserId, fromUsername, message, timestamp) {
-            console.log("=== GameModeSelection: dmReceived ===")
-            console.log("From:", fromUserId, "Message:", message)
-            
-            // Set unread badge for friend (only if not currently in ChatScreen with this friend)
-            // Note: We don't know which ChatScreen is open, so we'll always set the badge
-            // The badge will be reset when opening ChatScreen
-            
-            var updated = false
-            for (var i = 0; i < friendsList.length; i++) {
-                if (friendsList[i].id === fromUserId || friendsList[i].userId === fromUserId) {
-                    friendsList[i].hasUnreadMessages = true
-                    updated = true
-                    console.log("Set unread badge for friend:", fromUserId)
-                    break
-                }
-            }
-            
-            // Force update by creating new array reference
-            if (updated) {
-                var newList = friendsList.slice()
-                friendsList = newList
             }
         }
         
@@ -348,28 +322,6 @@ Item {
                                     color: "#333333"
                                     elide: Text.ElideRight
                                 }
-                                
-                                // Unread message badge "!"
-                                Rectangle {
-                                    Layout.preferredWidth: 20
-                                    Layout.preferredHeight: 20
-                                    Layout.alignment: Qt.AlignVCenter
-                                    radius: 10
-                                    color: "#FF5252"
-                                    visible: modelData.hasUnreadMessages || false
-                                    
-                                    // Disable mouse events so clicks pass through to parent
-                                    enabled: false
-                                    
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "!"
-                                        font.family: "Lexend"
-                                        font.pixelSize: 12
-                                        font.bold: true
-                                        color: "#FFFFFF"
-                                    }
-                                }
                             }
                             
                             MouseArea {
@@ -377,16 +329,6 @@ Item {
                                 onClicked: {
                                     var friendId = modelData.id || modelData.userId || 0
                                     var friendName = modelData.username || ""
-                                    
-                                    // Reset unread badge immediately (before push to avoid delay)
-                                    for (var i = 0; i < friendsList.length; i++) {
-                                        if (friendsList[i].id === friendId || friendsList[i].userId === friendId) {
-                                            friendsList[i].hasUnreadMessages = false
-                                            var newList = friendsList.slice()
-                                            friendsList = newList
-                                            break
-                                        }
-                                    }
                                     
                                     // Push ChatScreen
                                     if (stackView) {
