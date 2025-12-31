@@ -113,6 +113,34 @@ int session_manager_remove(SessionManager *mgr, int socket_fd) {
 	return 0;
 }
 
+int session_manager_remove_by_user_id(SessionManager *mgr, int64_t user_id, ClientSession *exclude_sess) {
+	if (!mgr || user_id <= 0) return -1;
+
+	int removed_count = 0;
+	
+	// Find and remove all sessions with this user_id (except exclude_sess)
+	for (int i = 0; i < mgr->max_sessions; i++) {
+		if (mgr->sessions[i] && 
+		    mgr->sessions[i]->user_id == user_id &&
+		    mgr->sessions[i] != exclude_sess) {
+			
+			ClientSession *sess = mgr->sessions[i];
+			int socket_fd = sess->socket_fd;
+			
+			// Remove from epoll
+			epoll_ctl(mgr->epoll_fd, EPOLL_CTL_DEL, socket_fd, NULL);
+			
+			// Free session
+			client_session_free(sess);
+			mgr->sessions[i] = NULL;
+			mgr->session_count--;
+			removed_count++;
+		}
+	}
+
+	return removed_count;
+}
+
 ClientSession *session_manager_get_by_fd(SessionManager *mgr, int socket_fd) {
 	if (!mgr || socket_fd < 0) return NULL;
 

@@ -355,7 +355,13 @@ ScrollView {
             // Update connect button state
             connectButton.isConnected = false
             
-            toastMessage.show("Đã ngắt kết nối với server", "#FF5252")
+            // Update login button state
+            loginButton.isServerConnected = false
+            
+            // Only show toast if not from logout (logout already handled)
+            if (networkClient && !networkClient.isLoggedIn()) {
+                toastMessage.show("Đã ngắt kết nối với server", "#FF5252")
+            }
         }
         
         function onLoginResponse(success, token, error) {

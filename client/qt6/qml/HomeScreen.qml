@@ -137,7 +137,7 @@ Item {
                     }
                 }
                 
-                // Settings icon
+                // Logout button
                 Rectangle {
                     Layout.preferredWidth: 40
                     Layout.preferredHeight: 40
@@ -145,15 +145,17 @@ Item {
                     
                     Text {
                         anchors.centerIn: parent
-                        text: "⚙️"
+                        text: "🚪"
                         font.pixelSize: 20
                     }
                     
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            // TODO: Navigate to settings
-                            console.log("Settings clicked")
+                            // Call logout directly
+                            if (networkClient.isLoggedIn()) {
+                                networkClient.sendLogout()
+                            }
                         }
                     }
                 }
@@ -787,6 +789,19 @@ Item {
             
             // Set unread messages flag for footer badge
             hasUnreadMessages = true
+        }
+        
+        function onLogoutResponse(success) {
+            console.log("Logout response:", success)
+            if (success) {
+                // Navigate back to Signin screen
+                // Socket will be disconnected by NetworkClient after logout
+                if (stackView) {
+                    // Clear stack and go to Signin
+                    stackView.clear()
+                    stackView.push("Signin.qml", {"stackView": stackView})
+                }
+            }
         }
     }
     

@@ -503,6 +503,11 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
             m_loggedIn = false;
             m_token.clear();
             m_userId = 0;
+            // Disconnect socket after logout to allow clean reconnection
+            if (m_socket->state() == QAbstractSocket::ConnectedState) {
+                qDebug() << "Logout successful, disconnecting socket for clean reconnection";
+                m_socket->disconnectFromHost();
+            }
             emit logoutResponse(true);
             break;
 

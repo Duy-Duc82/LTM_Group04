@@ -22,6 +22,7 @@ void session_manager_free(SessionManager *mgr);
 // Add/remove sessions
 int session_manager_add(SessionManager *mgr, ClientSession *sess);
 int session_manager_remove(SessionManager *mgr, int socket_fd);
+int session_manager_remove_by_user_id(SessionManager *mgr, int64_t user_id, ClientSession *exclude_sess);
 ClientSession *session_manager_get_by_fd(SessionManager *mgr, int socket_fd);
 
 // Epoll management

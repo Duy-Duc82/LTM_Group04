@@ -1,5 +1,5 @@
-C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/MillionaireClient.dir
-C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/edit_cache.dir
-C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/rebuild_cache.dir
-C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/MillionaireClient_autogen_timestamp_deps.dir
-C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/MillionaireClient_autogen.dir
+E:/GitHub_Class_project/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/MillionaireClient.dir
+E:/GitHub_Class_project/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/edit_cache.dir
+E:/GitHub_Class_project/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/rebuild_cache.dir
+E:/GitHub_Class_project/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/MillionaireClient_autogen_timestamp_deps.dir
+E:/GitHub_Class_project/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/CMakeFiles/MillionaireClient_autogen.dir

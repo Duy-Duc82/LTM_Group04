@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6
+# Install script for directory: E:/GitHub_Class_project/LTM_Group04/client/qt6
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,7 +34,7 @@ endif()
 
 # Set path to fallback-tool for dependency-resolution.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Qt/Tools/mingw1310_64/bin/objdump.exe")
+  set(CMAKE_OBJDUMP "E:/Qt/Tools/mingw1310_64/bin/objdump.exe")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)
@@ -52,6 +52,6 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-  file(WRITE "C:/Users/admin/Desktop/LTM_HW/Project102/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "E:/GitHub_Class_project/LTM_Group04/client/qt6/build/Desktop_Qt_6_10_1_MinGW_64_bit-Debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

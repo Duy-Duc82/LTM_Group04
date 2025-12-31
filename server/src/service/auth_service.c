@@ -6,9 +6,13 @@
 #include "service/commands.h"
 #include "service/protocol.h"
 #include "service/friends_service.h"
+#include "service/session_manager.h"
+#include "service/quickmode_service.h"
 #include "utils/json.h"
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
 
 #define SESSION_TTL_SECONDS 3600
 
@@ -72,6 +76,30 @@ void auth_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint3
                 UserSession us;
                 AuthResult r = auth_login(username, password, &us);
                 if (r == AUTH_OK) {
+                    // SINGLE-SESSION: Invalidate old sessions for this user
+                    SessionManager *mgr = session_manager_get_global();
+                    if (mgr) {
+                        // Find old sessions (excluding current session)
+                        ClientSession *old_sess = session_manager_get_by_user_id(us.user_id);
+                        if (old_sess && old_sess != sess) {
+                            printf("[AUTH] Invalidating old session for user_id=%lld (fd=%d)\n",
+                                   (long long)us.user_id, old_sess->socket_fd);
+                            fflush(stdout);
+                            
+                            // Cleanup game sessions (QuickMode)
+                            quickmode_cleanup_user(us.user_id);
+                            
+                            // Notify old client about logout (try to send, but don't fail if socket is closed)
+                            protocol_send_response(old_sess, CMD_RES_LOGOUT,
+                                "{\"reason\":\"NEW_LOGIN_DETECTED\"}", 35);
+                            
+                            // Close old session's socket
+                            // This will trigger disconnect in server loop, which will cleanup the session
+                            shutdown(old_sess->socket_fd, SHUT_RDWR);
+                            close(old_sess->socket_fd);
+                        }
+                    }
+                    
                     // attach to session
                     sess->user_id = us.user_id;
                     strncpy(sess->access_token, us.access_token, sizeof(sess->access_token)-1);
@@ -94,6 +122,31 @@ void auth_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint3
                 }
             }
             free(username); free(password);
+        } break;
+
+        case CMD_REQ_LOGOUT: {
+            if (sess && sess->user_id > 0) {
+                int64_t user_id = sess->user_id;
+                
+                // Cleanup game sessions (QuickMode)
+                quickmode_cleanup_user(user_id);
+                
+                // Notify friends that user is offline
+                friends_notify_status_change(user_id, "offline", 0);
+                
+                // Clear session data
+                sess->user_id = 0;
+                sess->access_token[0] = '\0';
+                sess->room_id = 0;
+                
+                // Send logout success response
+                protocol_send_simple_ok(sess, CMD_RES_LOGOUT);
+                
+                printf("[AUTH] User %lld logged out\n", (long long)user_id);
+                fflush(stdout);
+            } else {
+                protocol_send_error(sess, CMD_RES_LOGOUT, "NOT_LOGGED_IN");
+            }
         } break;
 
         default:
