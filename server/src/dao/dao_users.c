@@ -15,9 +15,15 @@ int dao_users_create(const char *username, const char *password, int64_t *out_us
         "INSERT INTO users (username, password) "
         "VALUES ($1, $2) RETURNING user_id;";
 
-    // temporarily store raw password (no hashing) to avoid login issues during dev
-    const char *params[2] = { username, password };
-    int paramLengths[2]   = { (int)strlen(username), (int)strlen(password) };
+    // Hash password before storing
+    char hashed_password[128];
+    if (util_password_hash(password, hashed_password, sizeof(hashed_password)) != 0) {
+        fprintf(stderr, "dao_users_create: failed to hash password\n");
+        return -1;
+    }
+
+    const char *params[2] = { username, hashed_password };
+    int paramLengths[2]   = { (int)strlen(username), (int)strlen(hashed_password) };
     int paramFormats[2]   = { 0, 0 };
 
     PGresult *res = PQexecParams(db_conn,

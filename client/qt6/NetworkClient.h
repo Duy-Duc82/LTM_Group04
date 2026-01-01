@@ -54,6 +54,9 @@ public:
     Q_INVOKABLE void sendGetProfile();
     Q_INVOKABLE void sendLeaderboard();
     Q_INVOKABLE void sendUpdateAvatar(const QString &avatarPath);
+    Q_INVOKABLE void sendGetOneVNHistory();
+    Q_INVOKABLE void sendGetReplayDetails(qint64 sessionId);
+    Q_INVOKABLE void sendListRooms();
     
     Q_INVOKABLE quint16 getUserId() const;
 
@@ -107,6 +110,9 @@ signals:
     void profileReceived(const QJsonObject &profile);
     void leaderboardReceived(const QJsonArray &leaderboard);
     void avatarUpdated(bool success, const QString &message);
+    void oneVNHistoryReceived(const QJsonArray &history);
+    void replayDetailsReceived(const QJsonObject &replayData);
+    void roomsListReceived(const QJsonArray &rooms);
 
 private slots:
     void onReadyRead();

@@ -657,6 +657,35 @@ Item {
                                 }
                             }
                         }
+                        
+                        // History button
+                        Rectangle {
+                            width: parent.width
+                            height: 48
+                            radius: 12
+                            color: "#FFC107"
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: "📜 Xem Lịch Sử Game"
+                                font.family: "Lexend"
+                                font.pixelSize: 14
+                                font.bold: true
+                                color: "#2E1A47"
+                            }
+                            
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    if (stackView) {
+                                        stackView.push("OneVNHistoryScreen.qml", {
+                                            "stackView": stackView,
+                                            "userId": userId
+                                        })
+                                    }
+                                }
+                            }
+                        }
                     }
                     
                     // Set height based on content

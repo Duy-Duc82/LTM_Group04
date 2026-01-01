@@ -36,6 +36,7 @@ typedef struct OneVNGameState {
     int *player_eliminated;
     int64_t *player_answered_round;  // Track which round each player last answered
     int timer_id;  // Timer ID for current round
+    int64_t current_round_id;  // Database round_id for current round (for replay)
     // Track used question IDs to prevent duplicates
     int64_t *used_question_ids;
     int used_question_count;
@@ -138,6 +139,7 @@ static OneVNGameState *init_game_state(int64_t session_id, int64_t room_id,
     state->player_eliminated = calloc(player_count, sizeof(int));
     state->player_answered_round = calloc(player_count, sizeof(int64_t));
     state->timer_id = -1;
+    state->current_round_id = -1;  // No round created yet
     
     // Initialize duplicate question tracking
     state->used_question_capacity = state->total_rounds + 10;  // Extra capacity
@@ -504,6 +506,23 @@ static void handle_submit_answer_1vn(ClientSession *sess, const char *payload, u
     // Use server's current_round, not round from request
     state->player_answered_round[player_idx] = server_round;
 
+    // Save player answer to database for replay
+    int score_gained = 0;
+    if (is_correct) {
+        double time_percent = (time_left / 15.0) * 100.0;
+        if (time_percent < 0) time_percent = 0;
+        if (time_percent > 100) time_percent = 100;
+        score_gained = calculate_score(state->current_difficulty, time_percent, 
+                                      state->player_consecutive_correct[player_idx] - 1);
+    }
+    if (state->current_round_id > 0) {
+        if (dao_onevn_save_player_answer(state->current_round_id, sess->user_id, answer[0],
+                                         is_correct, score_gained, time_left) != 0) {
+            printf("[ONEVN] WARNING: Failed to save player answer for replay\n");
+            fflush(stdout);
+        }
+    }
+
     // Update database
     char *leaderboard = build_leaderboard_json(state);
     if (leaderboard) {
@@ -548,6 +567,15 @@ static void handle_submit_answer_1vn(ClientSession *sess, const char *payload, u
         if (state->timer_id >= 0) {
             game_timer_cancel(state->timer_id);
             state->timer_id = -1;
+        }
+        
+        // End current round in database
+        if (state->current_round_id > 0) {
+            if (dao_onevn_end_round(state->current_round_id) != 0) {
+                printf("[ONEVN] WARNING: Failed to end round in database\n");
+                fflush(stdout);
+            }
+            state->current_round_id = -1;
         }
         
         // IMPORTANT: Broadcast leaderboard FIRST before sending next question
@@ -681,6 +709,15 @@ static void round_timeout_callback(int64_t context_id, void *user_data) {
         }
     }
     
+    // End current round in database
+    if (state->current_round_id > 0) {
+        if (dao_onevn_end_round(state->current_round_id) != 0) {
+            printf("[ONEVN] WARNING: Failed to end round in database\n");
+            fflush(stdout);
+        }
+        state->current_round_id = -1;
+    }
+    
     // Update database with current scores
     char *leaderboard = build_leaderboard_json(state);
     if (leaderboard) {
@@ -811,6 +848,19 @@ static void send_next_question(OneVNGameState *state) {
            state->current_question.question_id,
            state->current_question.content ? state->current_question.content : "(null)");
     fflush(stdout);
+
+    // Create round in database for replay
+    int64_t round_id = 0;
+    if (dao_onevn_create_round(state->session_id, state->current_round, 
+                               state->current_question.question_id, difficulty, &round_id) != 0) {
+        printf("[ONEVN] WARNING: Failed to create round in database for replay\n");
+        fflush(stdout);
+        // Continue anyway - replay won't have this round but game can continue
+    } else {
+        state->current_round_id = round_id;
+        printf("[ONEVN] Created round_id=%ld for round %d\n", round_id, state->current_round);
+        fflush(stdout);
+    }
 
     // Update counters
     if (strcmp(difficulty, "EASY") == 0) {

@@ -13,6 +13,9 @@
         <file>qml/ChatScreen.qml</file>
         <file>qml/QuickModeGame.qml</file>
         <file>qml/OneVNMode.qml</file>
+        <file>qml/OneVNHistoryScreen.qml</file>
+        <file>qml/OneVNReplayScreen.qml</file>
+        <file>qml/OneVNRoomListScreen.qml</file>
         <file>qml/WinScreen.qml</file>
         <file>qml/LoseScreen.qml</file>
         <file>qml/components/CustomTextField.qml</file>

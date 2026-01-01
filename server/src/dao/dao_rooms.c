@@ -267,3 +267,84 @@ int dao_rooms_get_owner(int64_t room_id, int64_t *owner_id) {
     PQclear(res);
     return 0;
 }
+
+int dao_rooms_list_waiting(void **result_json) {
+    PGconn *conn = db_get_conn();
+    if (!conn) return -1;
+
+    // Get rooms with status WAITING, include owner username and member count
+    const char *sql =
+        "SELECT r.room_id, r.owner_id, u.username as owner_username, "
+        "       COUNT(rm.user_id) as member_count, r.max_number_players, "
+        "       r.created_at "
+        "FROM room r "
+        "JOIN users u ON r.owner_id = u.user_id "
+        "LEFT JOIN room_members rm ON r.room_id = rm.room_id "
+        "WHERE r.status = 'WAITING' "
+        "GROUP BY r.room_id, r.owner_id, u.username, r.max_number_players, r.created_at "
+        "ORDER BY r.created_at DESC "
+        "LIMIT 50;";
+
+    PGresult *res = PQexecParams(conn, sql, 0, NULL, NULL, NULL, NULL, 0);
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "[DAO_ROOMS] list_waiting error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
+    int rows = PQntuples(res);
+    size_t cap = 1024;
+    size_t used = 0;
+    char *out = malloc(cap);
+    if (!out) { PQclear(res); return -1; }
+    out[used++] = '[';
+
+    for (int i = 0; i < rows; ++i) {
+        const char *room_id = PQgetvalue(res, i, 0);
+        const char *owner_id = PQgetvalue(res, i, 1);
+        const char *owner_username = PQgetvalue(res, i, 2);
+        const char *member_count = PQgetvalue(res, i, 3);
+        const char *max_players = PQgetvalue(res, i, 4);
+        const char *created_at = PQgetvalue(res, i, 5);
+
+        char *esc_username = util_json_escape(owner_username ? owner_username : "");
+        char *esc_created = util_json_escape(created_at ? created_at : "");
+        if (!esc_username) esc_username = strdup("");
+        if (!esc_created) esc_created = strdup("");
+
+        int need = snprintf(NULL, 0,
+            "{\"room_id\":%s,\"owner_id\":%s,\"owner_username\":\"%s\","
+            "\"member_count\":%s,\"max_players\":%s,\"created_at\":\"%s\"}",
+            room_id, owner_id, esc_username, member_count ? member_count : "0",
+            max_players ? max_players : "8", esc_created);
+
+        if (used + (size_t)need + 3 >= cap) {
+            cap = (used + (size_t)need + 3) * 2;
+            char *tmp = realloc(out, cap);
+            if (!tmp) { free(out); free(esc_username); free(esc_created); PQclear(res); return -1; }
+            out = tmp;
+        }
+
+        if (i > 0) out[used++] = ',';
+        used += snprintf(out + used, cap - used,
+            "{\"room_id\":%s,\"owner_id\":%s,\"owner_username\":\"%s\","
+            "\"member_count\":%s,\"max_players\":%s,\"created_at\":\"%s\"}",
+            room_id, owner_id, esc_username, member_count ? member_count : "0",
+            max_players ? max_players : "8", esc_created);
+
+        free(esc_username);
+        free(esc_created);
+    }
+
+    if (used + 2 >= cap) {
+        char *tmp = realloc(out, used + 2);
+        if (!tmp) { free(out); PQclear(res); return -1; }
+        out = tmp;
+        cap = used + 2;
+    }
+    out[used++] = ']';
+    out[used] = '\0';
+    *result_json = out;
+    PQclear(res);
+    return 0;
+}

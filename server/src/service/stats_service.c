@@ -6,6 +6,7 @@
 #include "service/protocol.h"
 #include "dao/dao_stats.h"
 #include "dao/dao_users.h"
+#include "dao/dao_onevn.h"
 #include "service/stats_service.h"
 #include "utils/json.h"
 
@@ -103,4 +104,38 @@ void stats_handle_update_avatar(ClientSession *sess, uint16_t cmd, const char *p
     snprintf(response, sizeof(response), "{\"success\": true, \"avatar_path\": \"%s\"}", avatar_path);
     protocol_send_response(sess, CMD_RES_UPDATE_AVATAR, response, strlen(response));
     free(avatar_path);
+}
+
+void stats_handle_get_onevn_history(ClientSession *sess, uint16_t cmd, const char *payload, uint32_t payload_len) {
+    (void)cmd; (void)payload; (void)payload_len;
+    int64_t user_id = sess->user_id;
+    void *json_history = NULL;
+    if (dao_onevn_get_user_history(user_id, &json_history) != 0) {
+        protocol_send_error(sess, CMD_RES_GET_ONEVN_HISTORY, "ONEVN_HISTORY_FAILED");
+        return;
+    }
+    const char *json_str = (const char *)json_history;
+    protocol_send_response(sess, CMD_RES_GET_ONEVN_HISTORY, json_str, strlen(json_str));
+    free(json_history);
+}
+
+void stats_handle_get_replay_details(ClientSession *sess, uint16_t cmd, const char *payload, uint32_t payload_len) {
+    (void)cmd;
+    long long session_id_ll = 0;
+    util_json_get_int64(payload, "session_id", &session_id_ll);
+    int64_t session_id = (int64_t)session_id_ll;
+    
+    if (session_id <= 0) {
+        protocol_send_error(sess, CMD_RES_GET_REPLAY_DETAILS, "INVALID_SESSION_ID");
+        return;
+    }
+    
+    void *json_replay = NULL;
+    if (dao_onevn_get_replay_details(session_id, &json_replay) != 0) {
+        protocol_send_error(sess, CMD_RES_GET_REPLAY_DETAILS, "REPLAY_DETAILS_FAILED");
+        return;
+    }
+    const char *json_str = (const char *)json_replay;
+    protocol_send_response(sess, CMD_RES_GET_REPLAY_DETAILS, json_str, strlen(json_str));
+    free(json_replay);
 }

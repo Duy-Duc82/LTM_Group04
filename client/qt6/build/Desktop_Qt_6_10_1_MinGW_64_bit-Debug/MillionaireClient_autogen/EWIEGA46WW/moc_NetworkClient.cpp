@@ -114,6 +114,12 @@ template <> constexpr inline auto NetworkClient::qt_create_metaobjectdata<qt_met
         "profile",
         "leaderboardReceived",
         "avatarUpdated",
+        "oneVNHistoryReceived",
+        "history",
+        "replayDetailsReceived",
+        "replayData",
+        "roomsListReceived",
+        "rooms",
         "onReadyRead",
         "onSocketError",
         "QAbstractSocket::SocketError",
@@ -164,6 +170,9 @@ template <> constexpr inline auto NetworkClient::qt_create_metaobjectdata<qt_met
         "sendLeaderboard",
         "sendUpdateAvatar",
         "avatarPath",
+        "sendGetOneVNHistory",
+        "sendGetReplayDetails",
+        "sendListRooms",
         "getUserId"
     };
 
@@ -306,120 +315,140 @@ template <> constexpr inline auto NetworkClient::qt_create_metaobjectdata<qt_met
         QtMocHelpers::SignalData<void(bool, const QString &)>(75, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::Bool, 5 }, { QMetaType::QString, 67 },
         }}),
+        // Signal 'oneVNHistoryReceived'
+        QtMocHelpers::SignalData<void(const QJsonArray &)>(76, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { 0x80000000 | 38, 77 },
+        }}),
+        // Signal 'replayDetailsReceived'
+        QtMocHelpers::SignalData<void(const QJsonObject &)>(78, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { 0x80000000 | 18, 79 },
+        }}),
+        // Signal 'roomsListReceived'
+        QtMocHelpers::SignalData<void(const QJsonArray &)>(80, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { 0x80000000 | 38, 81 },
+        }}),
         // Slot 'onReadyRead'
-        QtMocHelpers::SlotData<void()>(76, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(82, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onSocketError'
-        QtMocHelpers::SlotData<void(QAbstractSocket::SocketError)>(77, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { 0x80000000 | 78, 6 },
+        QtMocHelpers::SlotData<void(QAbstractSocket::SocketError)>(83, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 84, 6 },
         }}),
         // Slot 'onSocketStateChanged'
-        QtMocHelpers::SlotData<void(QAbstractSocket::SocketState)>(79, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { 0x80000000 | 80, 81 },
+        QtMocHelpers::SlotData<void(QAbstractSocket::SocketState)>(85, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 86, 87 },
         }}),
         // Method 'connectToServer'
-        QtMocHelpers::MethodData<bool(const QString &, quint16)>(82, 2, QMC::AccessPublic, QMetaType::Bool, {{
-            { QMetaType::QString, 83 }, { QMetaType::UShort, 84 },
+        QtMocHelpers::MethodData<bool(const QString &, quint16)>(88, 2, QMC::AccessPublic, QMetaType::Bool, {{
+            { QMetaType::QString, 89 }, { QMetaType::UShort, 90 },
         }}),
         // Method 'disconnectFromServer'
-        QtMocHelpers::MethodData<void()>(85, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(91, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'isConnected'
-        QtMocHelpers::MethodData<bool() const>(86, 2, QMC::AccessPublic, QMetaType::Bool),
+        QtMocHelpers::MethodData<bool() const>(92, 2, QMC::AccessPublic, QMetaType::Bool),
         // Method 'isLoggedIn'
-        QtMocHelpers::MethodData<bool() const>(87, 2, QMC::AccessPublic, QMetaType::Bool),
+        QtMocHelpers::MethodData<bool() const>(93, 2, QMC::AccessPublic, QMetaType::Bool),
         // Method 'getToken'
-        QtMocHelpers::MethodData<QString() const>(88, 2, QMC::AccessPublic, QMetaType::QString),
+        QtMocHelpers::MethodData<QString() const>(94, 2, QMC::AccessPublic, QMetaType::QString),
         // Method 'sendRegister'
-        QtMocHelpers::MethodData<void(const QString &, const QString &)>(89, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QString, 90 }, { QMetaType::QString, 91 },
+        QtMocHelpers::MethodData<void(const QString &, const QString &)>(95, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 96 }, { QMetaType::QString, 97 },
         }}),
         // Method 'sendLogin'
-        QtMocHelpers::MethodData<void(const QString &, const QString &)>(92, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QString, 90 }, { QMetaType::QString, 91 },
+        QtMocHelpers::MethodData<void(const QString &, const QString &)>(98, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 96 }, { QMetaType::QString, 97 },
         }}),
         // Method 'sendLogout'
-        QtMocHelpers::MethodData<void()>(93, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(99, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'sendStartQuickMode'
-        QtMocHelpers::MethodData<void()>(94, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(100, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'sendGetQuestion'
-        QtMocHelpers::MethodData<void(qint64, int)>(95, 2, QMC::AccessPublic, QMetaType::Void, {{
+        QtMocHelpers::MethodData<void(qint64, int)>(101, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::LongLong, 12 }, { QMetaType::Int, 15 },
         }}),
         // Method 'sendSubmitAnswer'
-        QtMocHelpers::MethodData<void(qint64, int, const QString &)>(96, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 12 }, { QMetaType::Int, 15 }, { QMetaType::QString, 97 },
+        QtMocHelpers::MethodData<void(qint64, int, const QString &)>(102, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 12 }, { QMetaType::Int, 15 }, { QMetaType::QString, 103 },
         }}),
         // Method 'sendUseLifeline'
-        QtMocHelpers::MethodData<void(qint64, int)>(98, 2, QMC::AccessPublic, QMetaType::Void, {{
+        QtMocHelpers::MethodData<void(qint64, int)>(104, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::LongLong, 12 }, { QMetaType::Int, 15 },
         }}),
         // Method 'sendCreateRoom'
-        QtMocHelpers::MethodData<void(int, int, int)>(99, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::Int, 100 }, { QMetaType::Int, 101 }, { QMetaType::Int, 102 },
+        QtMocHelpers::MethodData<void(int, int, int)>(105, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::Int, 106 }, { QMetaType::Int, 107 }, { QMetaType::Int, 108 },
         }}),
         // Method 'sendJoinRoom'
-        QtMocHelpers::MethodData<void(qint64)>(103, 2, QMC::AccessPublic, QMetaType::Void, {{
+        QtMocHelpers::MethodData<void(qint64)>(109, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::LongLong, 35 },
         }}),
         // Method 'sendLeaveRoom'
-        QtMocHelpers::MethodData<void(qint64)>(104, 2, QMC::AccessPublic, QMetaType::Void, {{
+        QtMocHelpers::MethodData<void(qint64)>(110, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::LongLong, 35 },
         }}),
         // Method 'sendStartGame1VN'
-        QtMocHelpers::MethodData<void(qint64)>(105, 2, QMC::AccessPublic, QMetaType::Void, {{
+        QtMocHelpers::MethodData<void(qint64)>(111, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::LongLong, 35 },
         }}),
         // Method 'sendSubmitAnswer1VN'
-        QtMocHelpers::MethodData<void(qint64, int, const QString &, double)>(106, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 12 }, { QMetaType::Int, 15 }, { QMetaType::QString, 97 }, { QMetaType::Double, 107 },
+        QtMocHelpers::MethodData<void(qint64, int, const QString &, double)>(112, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 12 }, { QMetaType::Int, 15 }, { QMetaType::QString, 103 }, { QMetaType::Double, 113 },
         }}),
         // Method 'sendSearchUser'
-        QtMocHelpers::MethodData<void(const QString &, int)>(108, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QString, 109 }, { QMetaType::Int, 110 },
+        QtMocHelpers::MethodData<void(const QString &, int)>(114, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 115 }, { QMetaType::Int, 116 },
         }}),
         // Method 'sendSearchUser'
-        QtMocHelpers::MethodData<void(const QString &)>(108, 2, QMC::AccessPublic | QMC::MethodCloned, QMetaType::Void, {{
-            { QMetaType::QString, 109 },
+        QtMocHelpers::MethodData<void(const QString &)>(114, 2, QMC::AccessPublic | QMC::MethodCloned, QMetaType::Void, {{
+            { QMetaType::QString, 115 },
         }}),
         // Method 'sendAddFriend'
-        QtMocHelpers::MethodData<void(qint64)>(111, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 112 },
+        QtMocHelpers::MethodData<void(qint64)>(117, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 118 },
         }}),
         // Method 'sendRemoveFriend'
-        QtMocHelpers::MethodData<void(qint64)>(113, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 112 },
+        QtMocHelpers::MethodData<void(qint64)>(119, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 118 },
         }}),
         // Method 'sendListFriends'
-        QtMocHelpers::MethodData<void()>(114, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(120, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'sendGetFriendInfo'
-        QtMocHelpers::MethodData<void(qint64)>(115, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 112 },
+        QtMocHelpers::MethodData<void(qint64)>(121, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 118 },
         }}),
         // Method 'sendGetPendingRequests'
-        QtMocHelpers::MethodData<void()>(116, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(122, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'sendRespondFriend'
-        QtMocHelpers::MethodData<void(qint64, bool)>(117, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 64 }, { QMetaType::Bool, 118 },
+        QtMocHelpers::MethodData<void(qint64, bool)>(123, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 64 }, { QMetaType::Bool, 124 },
         }}),
         // Method 'sendSendDM'
-        QtMocHelpers::MethodData<void(qint64, const QString &)>(119, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 120 }, { QMetaType::QString, 67 },
+        QtMocHelpers::MethodData<void(qint64, const QString &)>(125, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 126 }, { QMetaType::QString, 67 },
         }}),
         // Method 'sendFetchOfflineMessages'
-        QtMocHelpers::MethodData<void(qint64)>(121, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::LongLong, 112 },
+        QtMocHelpers::MethodData<void(qint64)>(127, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 118 },
         }}),
         // Method 'sendFetchOfflineMessages'
-        QtMocHelpers::MethodData<void()>(121, 2, QMC::AccessPublic | QMC::MethodCloned, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(127, 2, QMC::AccessPublic | QMC::MethodCloned, QMetaType::Void),
         // Method 'sendGetProfile'
-        QtMocHelpers::MethodData<void()>(122, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(128, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'sendLeaderboard'
-        QtMocHelpers::MethodData<void()>(123, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(129, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'sendUpdateAvatar'
-        QtMocHelpers::MethodData<void(const QString &)>(124, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QString, 125 },
+        QtMocHelpers::MethodData<void(const QString &)>(130, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 131 },
         }}),
+        // Method 'sendGetOneVNHistory'
+        QtMocHelpers::MethodData<void()>(132, 2, QMC::AccessPublic, QMetaType::Void),
+        // Method 'sendGetReplayDetails'
+        QtMocHelpers::MethodData<void(qint64)>(133, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::LongLong, 12 },
+        }}),
+        // Method 'sendListRooms'
+        QtMocHelpers::MethodData<void()>(134, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'getUserId'
-        QtMocHelpers::MethodData<quint16() const>(126, 2, QMC::AccessPublic, QMetaType::UShort),
+        QtMocHelpers::MethodData<quint16() const>(135, 2, QMC::AccessPublic, QMetaType::UShort),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -477,45 +506,51 @@ void NetworkClient::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         case 31: _t->profileReceived((*reinterpret_cast<std::add_pointer_t<QJsonObject>>(_a[1]))); break;
         case 32: _t->leaderboardReceived((*reinterpret_cast<std::add_pointer_t<QJsonArray>>(_a[1]))); break;
         case 33: _t->avatarUpdated((*reinterpret_cast<std::add_pointer_t<bool>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
-        case 34: _t->onReadyRead(); break;
-        case 35: _t->onSocketError((*reinterpret_cast<std::add_pointer_t<QAbstractSocket::SocketError>>(_a[1]))); break;
-        case 36: _t->onSocketStateChanged((*reinterpret_cast<std::add_pointer_t<QAbstractSocket::SocketState>>(_a[1]))); break;
-        case 37: { bool _r = _t->connectToServer((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<quint16>>(_a[2])));
+        case 34: _t->oneVNHistoryReceived((*reinterpret_cast<std::add_pointer_t<QJsonArray>>(_a[1]))); break;
+        case 35: _t->replayDetailsReceived((*reinterpret_cast<std::add_pointer_t<QJsonObject>>(_a[1]))); break;
+        case 36: _t->roomsListReceived((*reinterpret_cast<std::add_pointer_t<QJsonArray>>(_a[1]))); break;
+        case 37: _t->onReadyRead(); break;
+        case 38: _t->onSocketError((*reinterpret_cast<std::add_pointer_t<QAbstractSocket::SocketError>>(_a[1]))); break;
+        case 39: _t->onSocketStateChanged((*reinterpret_cast<std::add_pointer_t<QAbstractSocket::SocketState>>(_a[1]))); break;
+        case 40: { bool _r = _t->connectToServer((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<quint16>>(_a[2])));
             if (_a[0]) *reinterpret_cast<bool*>(_a[0]) = std::move(_r); }  break;
-        case 38: _t->disconnectFromServer(); break;
-        case 39: { bool _r = _t->isConnected();
+        case 41: _t->disconnectFromServer(); break;
+        case 42: { bool _r = _t->isConnected();
             if (_a[0]) *reinterpret_cast<bool*>(_a[0]) = std::move(_r); }  break;
-        case 40: { bool _r = _t->isLoggedIn();
+        case 43: { bool _r = _t->isLoggedIn();
             if (_a[0]) *reinterpret_cast<bool*>(_a[0]) = std::move(_r); }  break;
-        case 41: { QString _r = _t->getToken();
+        case 44: { QString _r = _t->getToken();
             if (_a[0]) *reinterpret_cast<QString*>(_a[0]) = std::move(_r); }  break;
-        case 42: _t->sendRegister((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
-        case 43: _t->sendLogin((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
-        case 44: _t->sendLogout(); break;
-        case 45: _t->sendStartQuickMode(); break;
-        case 46: _t->sendGetQuestion((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
-        case 47: _t->sendSubmitAnswer((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[3]))); break;
-        case 48: _t->sendUseLifeline((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
-        case 49: _t->sendCreateRoom((*reinterpret_cast<std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[3]))); break;
-        case 50: _t->sendJoinRoom((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 51: _t->sendLeaveRoom((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 52: _t->sendStartGame1VN((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 53: _t->sendSubmitAnswer1VN((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[4]))); break;
-        case 54: _t->sendSearchUser((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
-        case 55: _t->sendSearchUser((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
-        case 56: _t->sendAddFriend((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 57: _t->sendRemoveFriend((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 58: _t->sendListFriends(); break;
-        case 59: _t->sendGetFriendInfo((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 60: _t->sendGetPendingRequests(); break;
-        case 61: _t->sendRespondFriend((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<bool>>(_a[2]))); break;
-        case 62: _t->sendSendDM((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
-        case 63: _t->sendFetchOfflineMessages((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
-        case 64: _t->sendFetchOfflineMessages(); break;
-        case 65: _t->sendGetProfile(); break;
-        case 66: _t->sendLeaderboard(); break;
-        case 67: _t->sendUpdateAvatar((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
-        case 68: { quint16 _r = _t->getUserId();
+        case 45: _t->sendRegister((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
+        case 46: _t->sendLogin((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
+        case 47: _t->sendLogout(); break;
+        case 48: _t->sendStartQuickMode(); break;
+        case 49: _t->sendGetQuestion((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
+        case 50: _t->sendSubmitAnswer((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[3]))); break;
+        case 51: _t->sendUseLifeline((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
+        case 52: _t->sendCreateRoom((*reinterpret_cast<std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[3]))); break;
+        case 53: _t->sendJoinRoom((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 54: _t->sendLeaveRoom((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 55: _t->sendStartGame1VN((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 56: _t->sendSubmitAnswer1VN((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[4]))); break;
+        case 57: _t->sendSearchUser((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
+        case 58: _t->sendSearchUser((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
+        case 59: _t->sendAddFriend((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 60: _t->sendRemoveFriend((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 61: _t->sendListFriends(); break;
+        case 62: _t->sendGetFriendInfo((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 63: _t->sendGetPendingRequests(); break;
+        case 64: _t->sendRespondFriend((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<bool>>(_a[2]))); break;
+        case 65: _t->sendSendDM((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
+        case 66: _t->sendFetchOfflineMessages((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 67: _t->sendFetchOfflineMessages(); break;
+        case 68: _t->sendGetProfile(); break;
+        case 69: _t->sendLeaderboard(); break;
+        case 70: _t->sendUpdateAvatar((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
+        case 71: _t->sendGetOneVNHistory(); break;
+        case 72: _t->sendGetReplayDetails((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1]))); break;
+        case 73: _t->sendListRooms(); break;
+        case 74: { quint16 _r = _t->getUserId();
             if (_a[0]) *reinterpret_cast<quint16*>(_a[0]) = std::move(_r); }  break;
         default: ;
         }
@@ -523,14 +558,14 @@ void NetworkClient::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
         switch (_id) {
         default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
-        case 35:
+        case 38:
             switch (*reinterpret_cast<int*>(_a[1])) {
             default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
             case 0:
                 *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType::fromType< QAbstractSocket::SocketError >(); break;
             }
             break;
-        case 36:
+        case 39:
             switch (*reinterpret_cast<int*>(_a[1])) {
             default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
             case 0:
@@ -606,6 +641,12 @@ void NetworkClient::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
             return;
         if (QtMocHelpers::indexOfMethod<void (NetworkClient::*)(bool , const QString & )>(_a, &NetworkClient::avatarUpdated, 33))
             return;
+        if (QtMocHelpers::indexOfMethod<void (NetworkClient::*)(const QJsonArray & )>(_a, &NetworkClient::oneVNHistoryReceived, 34))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (NetworkClient::*)(const QJsonObject & )>(_a, &NetworkClient::replayDetailsReceived, 35))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (NetworkClient::*)(const QJsonArray & )>(_a, &NetworkClient::roomsListReceived, 36))
+            return;
     }
 }
 
@@ -628,14 +669,14 @@ int NetworkClient::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 69)
+        if (_id < 75)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 69;
+        _id -= 75;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 69)
+        if (_id < 75)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 69;
+        _id -= 75;
     }
     return _id;
 }
@@ -836,5 +877,23 @@ void NetworkClient::leaderboardReceived(const QJsonArray & _t1)
 void NetworkClient::avatarUpdated(bool _t1, const QString & _t2)
 {
     QMetaObject::activate<void>(this, &staticMetaObject, 33, nullptr, _t1, _t2);
+}
+
+// SIGNAL 34
+void NetworkClient::oneVNHistoryReceived(const QJsonArray & _t1)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 34, nullptr, _t1);
+}
+
+// SIGNAL 35
+void NetworkClient::replayDetailsReceived(const QJsonObject & _t1)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 35, nullptr, _t1);
+}
+
+// SIGNAL 36
+void NetworkClient::roomsListReceived(const QJsonArray & _t1)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 36, nullptr, _t1);
 }
 QT_WARNING_POP

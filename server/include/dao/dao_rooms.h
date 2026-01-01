@@ -19,5 +19,6 @@ int dao_rooms_update_status(int64_t room_id, room_status_t status);
 int dao_rooms_get_config(int64_t room_id, int *easy_count, int *medium_count, int *hard_count);
 int dao_rooms_update_config(int64_t room_id, int easy_count, int medium_count, int hard_count);
 int dao_rooms_get_owner(int64_t room_id, int64_t *owner_id);
+int dao_rooms_list_waiting(void **result_json);  // List rooms with status WAITING, include owner name and member count
 
 #endif

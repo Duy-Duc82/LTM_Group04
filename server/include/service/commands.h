@@ -54,12 +54,14 @@
 #define CMD_RES_CREATE_ROOM     0x0402    // Server → Client: Room creation result
 #define CMD_REQ_JOIN_ROOM       0x0403    // Client → Server: Join room
 #define CMD_RES_JOIN_ROOM       0x0404    // Server → Client: Join room result
-#define CMD_NOTIFY_ROOM_UPDATE  0x0405    // Server → Client: Room member update
-#define CMD_REQ_INVITE_FRIEND   0x0406    // Client → Server: Invite friend
-#define CMD_RES_INVITE_FRIEND   0x0407    // Server → Client: Invite friend result
-#define CMD_NOTIFY_ROOM_INVITE  0x0408    // Server → Client: Room invite received
-#define CMD_REQ_RESPOND_INVITE  0x0409    // Client → Server: Accept/Reject invite
-#define CMD_RES_RESPOND_INVITE  0x040A    // Server → Client: Invite result
+#define CMD_REQ_LIST_ROOMS      0x0405    // Client → Server: List waiting rooms
+#define CMD_RES_LIST_ROOMS      0x0406    // Server → Client: List rooms result
+#define CMD_NOTIFY_ROOM_UPDATE  0x0411    // Server → Client: Room member update
+#define CMD_REQ_INVITE_FRIEND   0x0412    // Client → Server: Invite friend
+#define CMD_RES_INVITE_FRIEND   0x0413    // Server → Client: Invite friend result
+#define CMD_NOTIFY_ROOM_INVITE  0x0414    // Server → Client: Room invite received
+#define CMD_REQ_RESPOND_INVITE  0x0415    // Client → Server: Accept/Reject invite
+#define CMD_RES_RESPOND_INVITE  0x0416    // Server → Client: Invite result
 #define CMD_REQ_LEAVE_ROOM      0x040B    // Client → Server: Leave room
 #define CMD_RES_LEAVE_ROOM      0x040C    // Server → Client: Leave room result
 #define CMD_REQ_START_GAME      0x040D    // Client → Server: Host starts game
@@ -95,6 +97,10 @@
 #define CMD_RES_MATCH_HISTORY   0x0706    // Server → Client: Match history result
 #define CMD_REQ_UPDATE_AVATAR   0x0707    // Client → Server: Update avatar
 #define CMD_RES_UPDATE_AVATAR   0x0708    // Server → Client: Update avatar result
+#define CMD_REQ_GET_ONEVN_HISTORY 0x0709  // Client → Server: Request 1vN game history
+#define CMD_RES_GET_ONEVN_HISTORY 0x070A  // Server → Client: 1vN game history result
+#define CMD_REQ_GET_REPLAY_DETAILS 0x070B  // Client → Server: Request replay details
+#define CMD_RES_GET_REPLAY_DETAILS 0x070C  // Server → Client: Replay details result
 
 // ========== 0x08xx – System / Error / Connection
 #define CMD_REQ_PING            0x0801    // Client → Server: Ping

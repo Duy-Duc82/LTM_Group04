@@ -10,7 +10,9 @@
 	"INPUTS" : 
 	[
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/HomeScreen.qml",
+		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/OneVNHistoryScreen.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/GameModeSelection.qml",
+		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/OneVNRoomListScreen.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/QuickModeGame.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/LoseScreen.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/Signup.qml",
@@ -18,6 +20,7 @@
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/Signin.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/ProfileScreen.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/FriendsList.qml",
+		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/OneVNReplayScreen.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/WinScreen.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/OneVNMode.qml",
 		"E:/GitHub_Class_project/LTM_Group04/client/qt6/qml/main.qml",

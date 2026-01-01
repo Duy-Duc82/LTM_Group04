@@ -677,5 +677,5 @@ E:/GitHub_Class_project/LTM_Group04/client/qt6/NetworkClient.h
  mdp:E:/Qt/Tools/mingw1310_64/x86_64-w64-mingw32/include/vadefs.h
  mdp:E:/Qt/Tools/mingw1310_64/x86_64-w64-mingw32/include/wchar.h
 E:/GitHub_Class_project/LTM_Group04/client/qt6/FileDialogHelper.cpp
-E:/GitHub_Class_project/LTM_Group04/client/qt6/NetworkClient.cpp
 E:/GitHub_Class_project/LTM_Group04/client/qt6/main.cpp
+E:/GitHub_Class_project/LTM_Group04/client/qt6/NetworkClient.cpp

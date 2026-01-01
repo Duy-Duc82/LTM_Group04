@@ -322,7 +322,7 @@ Item {
                                     
                                     onClicked: {
                                         if (stackView) {
-                                            stackView.push("OneVNMode.qml", {
+                                            stackView.push("OneVNRoomListScreen.qml", {
                                                 "stackView": stackView,
                                                 "username": username
                                             })

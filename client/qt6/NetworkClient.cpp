@@ -28,7 +28,7 @@
 #define CMD_RES_CREATE_ROOM        0x0402
 #define CMD_REQ_JOIN_ROOM          0x0403
 #define CMD_RES_JOIN_ROOM          0x0404
-#define CMD_NOTIFY_ROOM_UPDATE     0x0405
+#define CMD_NOTIFY_ROOM_UPDATE     0x0411
 #define CMD_REQ_LEAVE_ROOM         0x040B
 #define CMD_RES_LEAVE_ROOM         0x040C
 #define CMD_REQ_START_GAME         0x040D
@@ -77,6 +77,13 @@
 #define CMD_RES_MATCH_HISTORY      0x0706
 #define CMD_REQ_UPDATE_AVATAR      0x0707
 #define CMD_RES_UPDATE_AVATAR      0x0708
+#define CMD_REQ_GET_ONEVN_HISTORY  0x0709
+#define CMD_RES_GET_ONEVN_HISTORY  0x070A
+#define CMD_REQ_GET_REPLAY_DETAILS  0x070B
+#define CMD_RES_GET_REPLAY_DETAILS  0x070C
+#define CMD_REQ_LIST_ROOMS  0x0405
+#define CMD_RES_LIST_ROOMS  0x0406
+#define CMD_NOTIFY_ROOM_UPDATE  0x0407
 
 NetworkClient::NetworkClient(QObject *parent)
     : QObject(parent)
@@ -649,6 +656,16 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
             }
             break;
 
+        case CMD_RES_LIST_ROOMS:
+            // Server returns array of rooms
+            if (doc.isArray()) {
+                QJsonArray rooms = doc.array();
+                emit roomsListReceived(rooms);
+            } else {
+                emit errorOccurred("Invalid rooms list format");
+            }
+            break;
+
         case CMD_RES_LEAVE_ROOM:
             // Handle leave room response if needed
             break;
@@ -924,6 +941,26 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
                 emit leaderboardReceived(QJsonArray());
             }
             break;
+            
+        case CMD_RES_GET_ONEVN_HISTORY:
+            // Server returns array of 1vN game history
+            if (doc.isArray()) {
+                QJsonArray history = doc.array();
+                emit oneVNHistoryReceived(history);
+            } else {
+                emit errorOccurred("Invalid 1vN history format");
+            }
+            break;
+            
+        case CMD_RES_GET_REPLAY_DETAILS:
+            // Server returns replay details object
+            if (doc.isObject()) {
+                QJsonObject replayData = doc.object();
+                emit replayDetailsReceived(replayData);
+            } else {
+                emit errorOccurred("Invalid replay details format");
+            }
+            break;
 
         default:
             qDebug() << "Unknown command:" << QString::number(cmd, 16);
@@ -1091,6 +1128,31 @@ void NetworkClient::sendUpdateAvatar(const QString &avatarPath)
     QJsonDocument doc(obj);
     QByteArray json = doc.toJson(QJsonDocument::Compact);
     sendPacket(CMD_REQ_UPDATE_AVATAR, m_userId, json);
+}
+
+void NetworkClient::sendGetOneVNHistory()
+{
+    QJsonObject obj;  // Empty object - server uses session user_id
+    QJsonDocument doc(obj);
+    QByteArray json = doc.toJson(QJsonDocument::Compact);
+    sendPacket(CMD_REQ_GET_ONEVN_HISTORY, m_userId, json);
+}
+
+void NetworkClient::sendGetReplayDetails(qint64 sessionId)
+{
+    QJsonObject obj;
+    obj["session_id"] = sessionId;
+    QJsonDocument doc(obj);
+    QByteArray json = doc.toJson(QJsonDocument::Compact);
+    sendPacket(CMD_REQ_GET_REPLAY_DETAILS, m_userId, json);
+}
+
+void NetworkClient::sendListRooms()
+{
+    QJsonObject obj;  // Empty object
+    QJsonDocument doc(obj);
+    QByteArray json = doc.toJson(QJsonDocument::Compact);
+    sendPacket(CMD_REQ_LIST_ROOMS, m_userId, json);
 }
 
 void NetworkClient::sendGetPendingRequests() {

@@ -110,6 +110,16 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                         protocol_send_error(sess, CMD_RES_LEAVE_ROOM, "LEAVE_ROOM_FAILED");
                     }
                 } break;
+                case CMD_REQ_LIST_ROOMS: {
+                    void *rooms_json = NULL;
+                    if (dao_rooms_list_waiting(&rooms_json) == 0) {
+                        const char *json_str = (const char *)rooms_json;
+                        protocol_send_response(sess, CMD_RES_LIST_ROOMS, json_str, strlen(json_str));
+                        free(rooms_json);
+                    } else {
+                        protocol_send_error(sess, CMD_RES_LIST_ROOMS, "LIST_ROOMS_FAILED");
+                    }
+                } break;
                 case CMD_REQ_START_GAME: {
                     // Start 1vN game - handled by onevn_service
                     onevn_dispatch(sess, cmd, payload, payload_len);
@@ -142,6 +152,12 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     break;
                 case CMD_REQ_UPDATE_AVATAR:
                     stats_handle_update_avatar(sess, cmd, payload, payload_len);
+                    break;
+                case CMD_REQ_GET_ONEVN_HISTORY:
+                    stats_handle_get_onevn_history(sess, cmd, payload, payload_len);
+                    break;
+                case CMD_REQ_GET_REPLAY_DETAILS:
+                    stats_handle_get_replay_details(sess, cmd, payload, payload_len);
                     break;
                 default:
                     protocol_send_error(sess, cmd, "UNKNOWN_STATS_CMD");
