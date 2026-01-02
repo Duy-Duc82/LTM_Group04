@@ -15,6 +15,7 @@ ClientSession *client_session_new(int socket_fd) {
     s->socket_fd = socket_fd;
     s->user_id = 0;
     s->room_id = 0;
+    s->status = USER_STATUS_ONLINE;  // Initialize status
     s->access_token[0] = '\0';
     s->read_buffer_len = 0;
     s->expected_len = 0;

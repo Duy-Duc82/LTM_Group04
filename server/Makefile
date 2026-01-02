@@ -57,6 +57,7 @@ TEST_ONEVN_OBJ     = src/test/test_onevn.o
 TEST_ONEVN_INTERACTIVE_OBJ = src/test/test_onevn_interactive.o
 TEST_HASH_PASSWORD_OBJ = src/test/test_hash_password.o
 TEST_ROOM_WAITING_CHAT_OBJ = src/test/test_room_waiting_chat.o
+TEST_INVITE_FLOW_OBJ = src/test/test_invite_flow.o
 
 # ==== TARGET MẶC ĐỊNH ====
 
@@ -151,6 +152,10 @@ $(BUILD_DIR)/test_hash_password: $(UTIL_OBJS) $(TEST_HASH_PASSWORD_OBJ)
 $(BUILD_DIR)/test_room_waiting_chat: $(COMMON_OBJS) $(TEST_ROOM_WAITING_CHAT_OBJ)
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(COMMON_OBJS) $(TEST_ROOM_WAITING_CHAT_OBJ) -o $@ $(LDFLAGS)
+
+$(BUILD_DIR)/test_invite_flow: $(TEST_INVITE_FLOW_OBJ)
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(TEST_INVITE_FLOW_OBJ) -o $@ $(LDFLAGS)
 
 # ==== RULE BIÊN DỊCH CHUNG ====
 

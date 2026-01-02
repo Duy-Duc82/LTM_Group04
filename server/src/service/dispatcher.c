@@ -76,6 +76,10 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                         // Set room_id in session
                         session_manager_set_room(sess, (int64_t)room_id);
                         
+                        // Update status to IN_WAITING_ROOM
+                        session_manager_update_status(sess->user_id, USER_STATUS_IN_WAITING_ROOM, (int64_t)room_id);
+                        friends_notify_status_change(sess->user_id, "in_waiting_room", (int64_t)room_id);
+                        
                         // Get room members and send back
                         void *members_json = NULL;
                         if (dao_rooms_get_members(room_id, &members_json) == 0) {
@@ -141,6 +145,10 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                         // Remove session from room so broadcast won't send to this player anymore
                         session_manager_set_room(sess, 0);
                         
+                        // Update status back to ONLINE and notify friends
+                        session_manager_update_status(sess->user_id, USER_STATUS_ONLINE, 0);
+                        session_broadcast_friend_status(sess->user_id);
+                        
                         char response_buf[128];
                         snprintf(response_buf, sizeof(response_buf), 
                             "{\"room_id\": %lld, \"status\": \"eliminated\"}", room_id);
@@ -170,6 +178,10 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     else if (is_owner && has_status && room_status == ROOM_STATUS_WAITING) {
                         // Owner leaving before game starts → Delete entire room
                         if (dao_rooms_delete(room_id) == 0) {
+                            // Update status back to ONLINE and notify friends
+                            session_manager_update_status(sess->user_id, USER_STATUS_ONLINE, 0);
+                            session_broadcast_friend_status(sess->user_id);
+                            
                             char response_buf[128];
                             snprintf(response_buf, sizeof(response_buf), 
                                 "{\"room_id\": %lld, \"status\": \"room_closed\"}", room_id);
@@ -188,6 +200,10 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     // Regular member leaving before game starts
                     else {
                         if (dao_rooms_leave(room_id, sess->user_id) == 0) {
+                            // Update status back to ONLINE and notify friends
+                            session_manager_update_status(sess->user_id, USER_STATUS_ONLINE, 0);
+                            session_broadcast_friend_status(sess->user_id);
+                            
                             char response_buf[128];
                             snprintf(response_buf, sizeof(response_buf), 
                                 "{\"room_id\": %lld, \"status\": \"left\"}", room_id);
@@ -223,6 +239,7 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                     onevn_dispatch(sess, cmd, payload, payload_len);
                 } break;
                 case CMD_REQ_INVITE_FRIEND:
+                case CMD_REQ_RESPOND_INVITE:
                     friends_dispatch(sess, cmd, payload, payload_len);
                     break;
                 default:

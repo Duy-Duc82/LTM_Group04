@@ -2,6 +2,7 @@
 #ifndef SESSION_MANAGER_H
 #define SESSION_MANAGER_H
 
+#include <stdbool.h>
 #include "service/client_session.h"
 #include <sys/epoll.h>
 
@@ -51,5 +52,11 @@ int session_manager_broadcast_to_room(int64_t room_id, uint16_t cmd, const char 
 // Set/get global session manager instance
 void session_manager_set_global(SessionManager *mgr);
 SessionManager *session_manager_get_global(void);
+
+// User status management for invite system
+const char *session_get_status_string(int64_t user_id);
+bool session_can_invite_user(int64_t target_user_id, int64_t from_room_id);
+void session_manager_update_status(int64_t user_id, int status, int64_t room_id);
+void session_broadcast_friend_status(int64_t user_id);
 
 #endif

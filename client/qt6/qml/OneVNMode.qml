@@ -50,6 +50,11 @@ Item {
         id: chatMessages
     }
     
+    // Friends model for invites
+    ListModel {
+        id: friendsModel
+    }
+    
     // Background gradient
     Rectangle {
         anchors.fill: parent
@@ -773,6 +778,40 @@ Item {
                 Layout.fillWidth: true
                 spacing: 15
                 
+                // Button: Invite Friends (visible to all)
+                Button {
+                    Layout.preferredWidth: 150
+                    Layout.preferredHeight: 50
+                    text: "Mời bạn bè"
+                    font.family: "Lexend"
+                    font.pixelSize: 14
+                    font.bold: true
+                    
+                    background: Rectangle {
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: "#1e88e5" }
+                            GradientStop { position: 1.0; color: "#1565c0" }
+                        }
+                        radius: 10
+                    }
+                    
+                    contentItem: Text {
+                        text: parent.text
+                        font: parent.font
+                        color: "#FFFFFF"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    
+                    onClicked: {
+                        console.log("[INVITE] Opening friend list to invite, roomId=" + roomId)
+                        friendsListDialog.roomId = roomId
+                        networkClient.sendListFriends()
+                        friendsListDialog.open()
+                    }
+                }
+                
+                // Button: Start Game (owner only)
                 Button {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 50
@@ -1585,6 +1624,35 @@ Item {
         function onErrorOccurred(error) {
             toastMessage.show("Lỗi: " + error, "#FF5252")
         }
+        
+        function onListFriendsResult(friends) {
+            console.log("[FRIENDS] Received friends list, count:", friends.length)
+            friendsModel.clear()
+            for (var i = 0; i < friends.length; i++) {
+                var friend = friends[i]
+                var onlineStatus = friend.online_status || "offline"
+                console.log("[FRIENDS] Friend", i, ":", friend.username, "status:", onlineStatus)
+                
+                // Only show online friends (not offline)
+                if (onlineStatus === "online") {
+                    friendsModel.append({
+                        userId: friend.user_id || 0,
+                        username: friend.username || "Unknown",
+                        online: true,
+                        inRoom: false
+                    })
+                } else if (onlineStatus === "in_game") {
+                    // Show in_game friends but disable invite button
+                    friendsModel.append({
+                        userId: friend.user_id || 0,
+                        username: friend.username || "Unknown",
+                        online: false,
+                        inRoom: true
+                    })
+                }
+            }
+            console.log("[FRIENDS] friendsModel updated, count:", friendsModel.count)
+        }
     }
     
     // Function to show question - must be outside Connections so timer can call it
@@ -1656,6 +1724,160 @@ Item {
         
         var timeLeft = timeRemaining
         networkClient.sendSubmitAnswer1VN(sessionId, currentRound, answer, timeLeft)
+    }
+    
+    // Friends List Dialog for inviting
+    Dialog {
+        id: friendsListDialog
+        title: "Chọn bạn bè để mời"
+        modal: true
+        anchors.centerIn: parent
+        width: 450
+        height: 550
+        
+        property int roomId: 0
+        
+        background: Rectangle {
+            color: "#2a2a2a"
+            radius: 10
+            border.color: "#4a4a4a"
+            border.width: 1
+        }
+        
+        header: Rectangle {
+            width: parent.width
+            height: 50
+            color: "#1e88e5"
+            radius: 10
+            
+            Label {
+                anchors.centerIn: parent
+                text: "👥 Danh sách bạn bè"
+                font.pixelSize: 18
+                font.bold: true
+                color: "white"
+            }
+        }
+        
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 15
+            
+            Label {
+                text: "Chọn bạn bè để mời vào phòng:"
+                font.pixelSize: 14
+                color: "#cccccc"
+            }
+            
+            ListView {
+                id: friendsListView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                
+                model: friendsModel
+                
+                delegate: Rectangle {
+                    width: friendsListView.width
+                    height: 60
+                    color: index % 2 === 0 ? "#3a3a3a" : "#2a2a2a"
+                    radius: 5
+                    
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 15
+                        
+                        Rectangle {
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 40
+                            radius: 20
+                            color: "#667eea"
+                            
+                            Label {
+                                anchors.centerIn: parent
+                                text: model.username ? model.username.charAt(0).toUpperCase() : "?"
+                                font.pixelSize: 18
+                                font.bold: true
+                                color: "white"
+                            }
+                        }
+                        
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            
+                            Label {
+                                text: model.username || "Unknown"
+                                font.pixelSize: 14
+                                font.bold: true
+                                color: "white"
+                            }
+                            
+                            Label {
+                                text: model.inRoom ? "🎮 In-game" : (model.online ? "● Online" : "○ Offline")
+                                font.pixelSize: 12
+                                color: model.inRoom ? "#FF9800" : (model.online ? "#4CAF50" : "#888888")
+                            }
+                        }
+                        
+                        Button {
+                            Layout.preferredWidth: 80
+                            Layout.preferredHeight: 35
+                            text: "Mời"
+                            enabled: model.online && !model.inRoom
+                            
+                            background: Rectangle {
+                                color: parent.enabled ? (parent.down ? "#1565c0" : "#1e88e5") : "#555555"
+                                radius: 6
+                            }
+                            
+                            contentItem: Text {
+                                text: parent.text
+                                font.pixelSize: 12
+                                font.bold: true
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            
+                            onClicked: {
+                                console.log("[INVITE] Sending invite to", model.username, "room_id=" + friendsListDialog.roomId)
+                                networkClient.sendInviteFriend(friendsListDialog.roomId, model.userId)
+                                toastMessage.show("Đã gửi lời mời đến " + model.username, "#4CAF50")
+                                friendsListDialog.close()
+                            }
+                        }
+                    }
+                }
+                
+                ScrollBar.vertical: ScrollBar {
+                    active: true
+                }
+            }
+            
+            Button {
+                Layout.alignment: Qt.AlignCenter
+                Layout.preferredWidth: 120
+                text: "Đóng"
+                
+                background: Rectangle {
+                    color: parent.down ? "#c62828" : "#f44336"
+                    radius: 6
+                }
+                
+                contentItem: Text {
+                    text: parent.text
+                    font.pixelSize: 12
+                    color: "white"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                
+                onClicked: friendsListDialog.close()
+            }
+        }
     }
     
     // Exit Confirmation Dialog

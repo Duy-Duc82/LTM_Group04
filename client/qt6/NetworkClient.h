@@ -51,6 +51,10 @@ public:
     Q_INVOKABLE void sendRoomChat(qint64 roomId, const QString &message);
     Q_INVOKABLE void sendFetchOfflineMessages(qint64 friendId = 0);
     
+    // Invite friends to room
+    Q_INVOKABLE void sendInviteFriend(qint64 roomId, qint64 friendId);
+    Q_INVOKABLE void sendRespondInvite(qint64 roomId, bool accept);
+    
     // Stats requests
     Q_INVOKABLE void sendGetProfile();
     Q_INVOKABLE void sendLeaderboard();
@@ -108,6 +112,11 @@ signals:
     void roomChatReceived(qint64 userId, const QString &username, const QString &message, qint64 timestamp);
     void offlineMessagesReceived(const QJsonArray &messages);
     void friendStatusChanged(qint64 userId, const QString &status, qint64 roomId);
+    
+    // Invite signals
+    void inviteFriendResult(bool success, const QString &error);
+    void roomInviteReceived(qint64 roomId, qint64 fromUserId, const QString &fromUsername);
+    void respondInviteResult(bool success, qint64 roomId, const QString &error);
     
     // Stats signals
     void profileReceived(const QJsonObject &profile);

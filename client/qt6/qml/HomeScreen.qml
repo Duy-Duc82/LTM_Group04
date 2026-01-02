@@ -773,8 +773,40 @@ Item {
     }
     
     // Connect to NetworkClient signals
+    // Invite Notification Dialog
+    InviteNotificationDialog {
+        id: inviteDialog
+    }
+    
     Connections {
         target: networkClient
+        
+        function onRoomInviteReceived(roomId, fromUserId, fromUsername) {
+            console.log("[INVITE] Received invite from", fromUsername, "room_id=" + roomId)
+            inviteDialog.roomId = roomId
+            inviteDialog.fromUserId = fromUserId
+            inviteDialog.inviterName = fromUsername
+            inviteDialog.open()
+        }
+        
+        function onOneVNRoomJoined(success, roomId, error) {
+            console.log("[HOME] onOneVNRoomJoined - success:" + success + " roomId:" + roomId)
+            // If successfully joined from invite accept, navigate to OneVNMode
+            if (success && roomId > 0) {
+                console.log("[HOME] Navigating to OneVNMode after invite accept")
+                var component = Qt.createComponent("OneVNMode.qml")
+                if (component.status === Component.Ready) {
+                    stackView.push(component, {
+                        "stackView": stackView,
+                        "username": username,
+                        "isJoiningRoom": true,
+                        "roomId": roomId
+                    })
+                } else {
+                    console.error("[HOME] Failed to load OneVNMode:", component.errorString())
+                }
+            }
+        }
         
         function onProfileReceived(profile) {
             // Update avatar when profile is received

@@ -103,6 +103,10 @@ void auth_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint3
                     // attach to session
                     sess->user_id = us.user_id;
                     strncpy(sess->access_token, us.access_token, sizeof(sess->access_token)-1);
+                    
+                    // Update status to ONLINE
+                    session_manager_update_status(us.user_id, USER_STATUS_ONLINE, 0);
+                    
                     // reply with token and user_id
                     char buf[256];
                     int n = snprintf(buf, sizeof(buf), 
@@ -127,6 +131,9 @@ void auth_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint3
         case CMD_REQ_LOGOUT: {
             if (sess && sess->user_id > 0) {
                 int64_t user_id = sess->user_id;
+                
+                // Update status to offline
+                session_manager_update_status(user_id, USER_STATUS_ONLINE, 0);  // Will be removed from session manager
                 
                 // Cleanup game sessions (QuickMode)
                 quickmode_cleanup_user(user_id);

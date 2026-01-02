@@ -463,10 +463,16 @@ static void handle_respond_friend(ClientSession *sess, const char *payload) {
 
 // Handle invite friend to room
 static void handle_invite_friend(ClientSession *sess, const char *payload) {
+    printf("[FRIENDS] === handle_invite_friend ===\n");
+    printf("[FRIENDS] Inviter user_id=%lld, payload=%s\n", (long long)sess->user_id, payload);
+    fflush(stdout);
+    
     long long friend_id_ll = 0;
     long long room_id_ll = 0;
     
     if (!util_json_get_int64(payload, "friend_id", &friend_id_ll) || friend_id_ll <= 0) {
+        printf("[FRIENDS] ERROR: Invalid friend_id\n");
+        fflush(stdout);
         protocol_send_error(sess, CMD_RES_INVITE_FRIEND, "INVALID_FRIEND_ID");
         return;
     }
@@ -479,27 +485,44 @@ static void handle_invite_friend(ClientSession *sess, const char *payload) {
     } else if (sess->room_id > 0) {
         room_id = sess->room_id;
     } else {
+        printf("[FRIENDS] ERROR: Not in room\n");
+        fflush(stdout);
         protocol_send_error(sess, CMD_RES_INVITE_FRIEND, "NOT_IN_ROOM");
         return;
     }
     
+    printf("[FRIENDS] room_id=%lld, friend_id=%lld\n", (long long)room_id, (long long)friend_id);
+    fflush(stdout);
+    
     // Check if they are friends
     bool are_friends = false;
     if (dao_friends_are_friends(sess->user_id, friend_id, &are_friends) != 0 || !are_friends) {
+        printf("[FRIENDS] ERROR: Not friends\n");
+        fflush(stdout);
         protocol_send_error(sess, CMD_RES_INVITE_FRIEND, "NOT_FRIENDS");
         return;
     }
     
+    printf("[FRIENDS] Friendship verified\n");
+    fflush(stdout);
+    
     // Check if friend is online
     ClientSession *friend_sess = session_manager_get_by_user_id(friend_id);
     if (!friend_sess) {
+        printf("[FRIENDS] ERROR: Friend offline (user_id=%lld)\n", (long long)friend_id);
+        fflush(stdout);
         protocol_send_error(sess, CMD_RES_INVITE_FRIEND, "FRIEND_OFFLINE");
         return;
     }
     
+    printf("[FRIENDS] Friend is online, socket_fd=%d\n", friend_sess->socket_fd);
+    fflush(stdout);
+    
     // Get room info
     int64_t owner_id = 0;
     if (dao_rooms_get_owner(room_id, &owner_id) != 0) {
+        printf("[FRIENDS] ERROR: Room not found\n");
+        fflush(stdout);
         protocol_send_error(sess, CMD_RES_INVITE_FRIEND, "ROOM_NOT_FOUND");
         return;
     }
@@ -507,6 +530,8 @@ static void handle_invite_friend(ClientSession *sess, const char *payload) {
     // Get sender username
     User sender;
     if (dao_users_find_by_id(sess->user_id, &sender) != 0) {
+        printf("[FRIENDS] ERROR: User not found\n");
+        fflush(stdout);
         protocol_send_error(sess, CMD_RES_INVITE_FRIEND, "USER_NOT_FOUND");
         return;
     }
@@ -520,13 +545,52 @@ static void handle_invite_friend(ClientSession *sess, const char *payload) {
         "{\"from_user_id\": %ld, \"from_username\": \"%s\", \"room_id\": %ld}",
         sess->user_id, esc_username, room_id);
     
+    printf("[FRIENDS] Sending notification to friend_id=%lld: %s\n", (long long)friend_id, invite_json);
+    fflush(stdout);
+    
     session_manager_send_to_user(friend_id, CMD_NOTIFY_ROOM_INVITE,
         invite_json, (uint32_t)strlen(invite_json));
+    
+    printf("[FRIENDS] Notification sent\n");
+    fflush(stdout);
     
     free(esc_username);
     
     // Send success response to sender
     protocol_send_simple_ok(sess, CMD_RES_INVITE_FRIEND);
+    printf("[FRIENDS] Success response sent to inviter\n");
+    fflush(stdout);
+}
+
+// Handle respond to room invite
+static void handle_respond_to_invite(ClientSession *sess, const char *payload) {
+    long long room_id_ll = 0;
+    
+    if (!util_json_get_int64(payload, "room_id", &room_id_ll) || room_id_ll <= 0) {
+        protocol_send_error(sess, CMD_RES_RESPOND_INVITE, "INVALID_ROOM_ID");
+        return;
+    }
+    int64_t room_id = (int64_t)room_id_ll;
+    
+    // Get accept flag (default to true if not specified)
+    long long accept_ll = 1;
+    util_json_get_int64(payload, "accept", &accept_ll);
+    bool accept = (accept_ll != 0);
+    
+    char response[256];
+    if (!accept) {
+        // User declined invite
+        snprintf(response, sizeof(response),
+            "{\"success\": true, \"message\": \"Declined\"}");
+        protocol_send_response(sess, CMD_RES_RESPOND_INVITE, response, (uint32_t)strlen(response));
+        return;
+    }
+    
+    // User accepted - return success, client will call join_room next (MANUAL-JOIN)
+    snprintf(response, sizeof(response),
+        "{\"success\": true, \"room_id\": %ld, \"message\": \"Accepted\"}",
+        room_id);
+    protocol_send_response(sess, CMD_RES_RESPOND_INVITE, response, (uint32_t)strlen(response));
 }
 
 // Handle send DM
@@ -798,6 +862,10 @@ void friends_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, ui
             
         case CMD_REQ_INVITE_FRIEND:
             handle_invite_friend(sess, payload);
+            break;
+            
+        case CMD_REQ_RESPOND_INVITE:
+            handle_respond_to_invite(sess, payload);
             break;
             
         case CMD_REQ_SEND_DM:

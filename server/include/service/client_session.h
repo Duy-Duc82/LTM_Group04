@@ -8,11 +8,19 @@
 
 #define READ_BUFFER_SIZE 8192
 
+// User status for invite system
+typedef enum {
+	USER_STATUS_ONLINE = 0,          // In lobby
+	USER_STATUS_IN_WAITING_ROOM = 1, // In room waiting
+	USER_STATUS_IN_GAME = 2          // Playing game (QuickMode or 1vN)
+} UserStatus;
+
 typedef struct ClientSession {
 	int socket_fd;             // socket file descriptor, -1 if unused
 	int64_t user_id;           // authenticated user id (0 if not logged in)
 	char access_token[65];     // if authenticated: token (NULL-terminated)
 	int64_t room_id;           // current room id (0 if not in room)
+	UserStatus status;         // current user status
 	
 	// Buffer for partial packet reads
 	char read_buffer[READ_BUFFER_SIZE];

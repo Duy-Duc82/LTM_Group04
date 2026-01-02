@@ -10,4 +10,5 @@ INSERT INTO users (username, password) VALUES
 ('charlie', 'f4d8015e2c83669e4f23529629ce6aaf$c7612626727a992a75401a53813cfda07b08bdbd66de278ff7b0b5eaea072a5a'),
 ('testuser1', 'efedbfda5612441ab59abc2ae81fc6bd$6076bcc764b2e521db87f75399181046e72ea4a509eba372c8fd95587791478a'),
 ('testuser2', '35b4ac291f47d0ec8abf55716af17e97$1f11f0e409050e90a0129dcba23b6f5d4988407afdb210bfc833572e5c15a87f'),
-('testuser3', '05eb1051fc5773f4fdb00ec757a0f960$ff2fe88426ae9480ada551a0e92ee328fc4b46623fd82f314299562cbe76a5c0');
+('testuser3', '05eb1051fc5773f4fdb00ec757a0f960$ff2fe88426ae9480ada551a0e92ee328fc4b46623fd82f314299562cbe76a5c0')
+ON CONFLICT (username) DO UPDATE SET password = EXCLUDED.password;

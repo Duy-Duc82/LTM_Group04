@@ -1,6 +1,7 @@
 // Session manager implementation
 #include "service/session_manager.h"
 #include "service/protocol.h"
+#include "service/commands.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 SessionManager *session_manager_new(int max_sessions) {
 	SessionManager *mgr = calloc(1, sizeof(SessionManager));
@@ -270,4 +272,90 @@ int session_manager_broadcast_to_room(int64_t room_id, uint16_t cmd, const char 
 	       (long long)room_id, cmd, count, total_sessions);
 	fflush(stdout);
 	return count;
+}
+
+// Get status string for broadcasting
+const char *session_get_status_string(int64_t user_id) {
+	ClientSession *sess = session_manager_get_by_user_id(user_id);
+	if (!sess) return "offline";
+	
+	switch (sess->status) {
+		case USER_STATUS_ONLINE:
+			return "online";
+		case USER_STATUS_IN_WAITING_ROOM:
+			return "in_waiting_room";
+		case USER_STATUS_IN_GAME:
+			return "in_game";
+		default:
+			return "unknown";
+	}
+}
+
+// Check if user can be invited
+bool session_can_invite_user(int64_t target_user_id, int64_t from_room_id) {
+	ClientSession *sess = session_manager_get_by_user_id(target_user_id);
+	
+	// User not online -> cannot invite
+	if (!sess) {
+		return false;
+	}
+	
+	// User is playing game -> cannot invite
+	if (sess->status == USER_STATUS_IN_GAME) {
+		return false;
+	}
+	
+	// User is in the same room -> already there, no need to invite
+	if (sess->status == USER_STATUS_IN_WAITING_ROOM && sess->room_id == from_room_id) {
+		return false;
+	}
+	
+	// ONLINE or in different room -> OK
+	return true;
+}
+
+// Update user status
+void session_manager_update_status(int64_t user_id, int status, int64_t room_id) {
+	ClientSession *sess = session_manager_get_by_user_id(user_id);
+	if (!sess) return;
+	
+	sess->status = (UserStatus)status;
+	if (room_id > 0) {
+		sess->room_id = room_id;
+	} else if (status == USER_STATUS_ONLINE) {
+		sess->room_id = 0;  // Clear room when back to online
+	}
+	
+	printf("[SESSION_MGR] Updated user %lld status to %d, room_id=%lld\n",
+	       (long long)user_id, status, (long long)sess->room_id);
+	fflush(stdout);
+}
+
+// Broadcast friend status update
+void session_broadcast_friend_status(int64_t user_id) {
+	if (!g_session_manager) return;
+	
+	// Get user's current status
+	const char *status_str = session_get_status_string(user_id);
+	ClientSession *user_sess = session_manager_get_by_user_id(user_id);
+	int64_t room_id = user_sess ? user_sess->room_id : 0;
+	
+	// Build JSON notification
+	char json[256];
+	snprintf(json, sizeof(json),
+		"{\"user_id\": %lld, \"status\": \"%s\", \"room_id\": %lld}",
+		(long long)user_id, status_str, (long long)room_id);
+	
+	printf("[SESSION_MGR] Broadcasting friend status for user %lld: %s\n",
+	       (long long)user_id, status_str);
+	fflush(stdout);
+	
+	// Send to all online users (simplified - in production, filter by friends)
+	// TODO: Query dao_friends to get actual friends list
+	for (int i = 0; i < g_session_manager->max_sessions; i++) {
+		ClientSession *sess = g_session_manager->sessions[i];
+		if (sess && sess->user_id > 0 && sess->user_id != user_id) {
+			session_manager_send_to_user(sess->user_id, 0x0208, json, (uint32_t)strlen(json));
+		}
+	}
 }

@@ -876,6 +876,51 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
                 qDebug() << "ERROR: CMD_NOTIFY_FRIEND_STATUS missing required fields";
             }
             break;
+        
+        // Invite responses
+        case 0x0413:  // CMD_RES_INVITE_FRIEND
+            qDebug() << "=== CMD_RES_INVITE_FRIEND received ===";
+            if (obj.contains("error")) {
+                emit inviteFriendResult(false, obj["error"].toString());
+            } else {
+                emit inviteFriendResult(true, "");
+            }
+            break;
+        
+        case 0x0414:  // CMD_NOTIFY_ROOM_INVITE
+            qDebug() << "=== CMD_NOTIFY_ROOM_INVITE received ===";
+            qDebug() << "Object:" << obj;
+            if (obj.contains("room_id") && obj.contains("from_user_id")) {
+                qint64 roomId = obj["room_id"].toVariant().toLongLong();
+                qint64 fromUserId = obj["from_user_id"].toVariant().toLongLong();
+                QString fromUsername = obj.contains("from_username") ? obj["from_username"].toString() : "";
+                
+                qDebug() << "Room invite received - roomId:" << roomId;
+                qDebug() << "fromUserId:" << fromUserId;
+                qDebug() << "fromUsername:" << fromUsername;
+                
+                emit roomInviteReceived(roomId, fromUserId, fromUsername);
+            }
+            break;
+        
+        case 0x0416:  // CMD_RES_RESPOND_INVITE
+            qDebug() << "=== CMD_RES_RESPOND_INVITE received ===";
+            if (obj.contains("error")) {
+                emit respondInviteResult(false, 0, obj["error"].toString());
+            } else {
+                bool success = obj.value("success").toBool();
+                QString message = obj.value("message").toString();
+                qint64 roomId = obj.contains("room_id") ? obj["room_id"].toVariant().toLongLong() : 0;
+                
+                if (success && message == "Accepted" && roomId > 0) {
+                    // MANUAL-JOIN: Auto-join room after successful accept
+                    qDebug() << "[INVITE] Auto-joining room" << roomId;
+                    sendJoinRoom(roomId);
+                }
+                
+                emit respondInviteResult(success, roomId, message);
+            }
+            break;
 
         // Chat responses
         case CMD_RES_SEND_DM:
@@ -1231,3 +1276,24 @@ void NetworkClient::sendRespondFriend(qint64 fromUserId, bool accept) {
     sendPacket(CMD_REQ_RESPOND_FRIEND, m_userId, json);
 }
 
+void NetworkClient::sendInviteFriend(qint64 roomId, qint64 friendId) {
+    QJsonObject obj;
+    obj["room_id"] = roomId;
+    obj["friend_id"] = friendId;
+
+    QJsonDocument doc(obj);
+    QByteArray json = doc.toJson(QJsonDocument::Compact);
+
+    sendPacket(0x0412, m_userId, json);  // CMD_REQ_INVITE_FRIEND
+}
+
+void NetworkClient::sendRespondInvite(qint64 roomId, bool accept) {
+    QJsonObject obj;
+    obj["room_id"] = roomId;
+    obj["accept"] = accept ? 1 : 0;
+
+    QJsonDocument doc(obj);
+    QByteArray json = doc.toJson(QJsonDocument::Compact);
+
+    sendPacket(0x0415, m_userId, json);  // CMD_REQ_RESPOND_INVITE
+}
