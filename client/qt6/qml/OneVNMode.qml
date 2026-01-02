@@ -7,8 +7,8 @@ import "components"
 Item {
     id: oneVNMode
     objectName: "oneVNMode"
-    width: parent ? parent.width : 1000
-    height: parent ? parent.height : 700
+    width: parent ? parent.width : 1400
+    height: parent ? parent.height : 800
     
     property StackView stackView
     property string username: ""
@@ -44,6 +44,11 @@ Item {
     property var membersList: []
     // Map user_id to username (for leaderboard that only has user_id)
     property var userIdToUsername: ({})
+    
+    // Chat messages model (shared across waiting room)
+    ListModel {
+        id: chatMessages
+    }
     
     // Background gradient
     Rectangle {
@@ -573,52 +578,191 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
             }
             
-            Rectangle {
+            // Split layout: Left = Players, Right = Chat
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                radius: 15
-                color: Qt.rgba(1.0, 1.0, 1.0, 0.95)
+                spacing: 20
                 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 20
-                    spacing: 10
+                // Left: Player list (2/3 width)
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: parent.width * 0.65
+                    radius: 15
+                    color: Qt.rgba(1.0, 1.0, 1.0, 0.95)
                     
-                    Text {
-                        text: "Thành viên trong phòng:"
-                        font.family: "Lexend"
-                        font.pixelSize: 16
-                        font.bold: true
-                        color: "#333333"
-                    }
-                    
-                    ListView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        model: membersList.length
-                        delegate: Rectangle {
-                            width: parent.width
-                            height: 40
-                            color: index % 2 === 0 ? "#F5F5F5" : "#FFFFFF"
-                            
-                            property var member: membersList[index] || {}
-                            
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: {
-                                    var name = member.username || "Người chơi " + (index + 1)
-                                    // Add (owner) if this is the owner
-                                    if (ownerId > 0 && member.userId === ownerId) {
-                                        return name + " (owner)"
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        spacing: 10
+                        
+                        Text {
+                            text: "Thành viên trong phòng:"
+                            font.family: "Lexend"
+                            font.pixelSize: 16
+                            font.bold: true
+                            color: "#333333"
+                        }
+                        
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            model: membersList.length
+                            delegate: Rectangle {
+                                width: parent.width
+                                height: 40
+                                color: index % 2 === 0 ? "#F5F5F5" : "#FFFFFF"
+                                
+                                property var member: membersList[index] || {}
+                                
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 10
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: {
+                                        var name = member.username || "Người chơi " + (index + 1)
+                                        if (ownerId > 0 && member.userId === ownerId) {
+                                            return name + " (owner)"
+                                        }
+                                        return name
                                     }
-                                    return name
+                                    font.family: "Lexend"
+                                    font.pixelSize: 14
+                                    color: "#333333"
+                                    elide: Text.ElideRight
                                 }
-                                font.family: "Lexend"
-                                font.pixelSize: 14
-                                color: "#333333"
-                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                }
+                
+                // Right: Chat panel (1/3 width)
+                Rectangle {
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: parent.width * 0.35
+                    radius: 15
+                    color: Qt.rgba(1.0, 1.0, 1.0, 0.95)
+                    
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+                        
+                        Text {
+                            text: "💬 Chat phòng chờ"
+                            font.family: "Lexend"
+                            font.pixelSize: 16
+                            font.bold: true
+                            color: "#667eea"
+                        }
+                        
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: "#F9F9F9"
+                            radius: 8
+                            border.color: "#E0E0E0"
+                            border.width: 1
+                            
+                            ListView {
+                                id: chatListView
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 4
+                                clip: true
+                                model: chatMessages
+                                delegate: Rectangle {
+                                    width: parent.width
+                                    height: messageText.height + 8
+                                    color: "transparent"
+                                    
+                                    Text {
+                                        id: messageText
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: model.sender + ": " + model.message
+                                        font.family: "Lexend"
+                                        font.pixelSize: 12
+                                        color: "#333333"
+                                        wrapMode: Text.WordWrap
+                                        
+                                        Component.onCompleted: {
+                                            // Bold the sender name
+                                            var senderLen = model.sender.length + 2 // "sender: "
+                                            text = "<b>" + model.sender + ":</b> " + model.message
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 36
+                                radius: 18
+                                color: "#FFFFFF"
+                                border.color: "#E0E0E0"
+                                border.width: 1
+                                
+                                TextInput {
+                                    id: chatInput
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+                                    verticalAlignment: TextInput.AlignVCenter
+                                    font.family: "Lexend"
+                                    font.pixelSize: 12
+                                    color: "#333333"
+                                    clip: true
+                                    maximumLength: 200
+                                    
+                                    Text {
+                                        anchors.fill: parent
+                                        verticalAlignment: Text.AlignVCenter
+                                        text: "Nhập tin nhắn..."
+                                        font: chatInput.font
+                                        color: "#999999"
+                                        visible: !chatInput.text && !chatInput.activeFocus
+                                    }
+                                    
+                                    Keys.onReturnPressed: sendChatButton.clicked()
+                                }
+                            }
+                            
+                            Button {
+                                id: sendChatButton
+                                Layout.preferredWidth: 60
+                                Layout.preferredHeight: 36
+                                text: "Gửi"
+                                enabled: chatInput.text.trim().length > 0
+                                
+                                background: Rectangle {
+                                    color: parent.enabled ? "#667eea" : "#CCCCCC"
+                                    radius: 8
+                                }
+                                
+                                contentItem: Text {
+                                    text: parent.text
+                                    font.family: "Lexend"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    color: "#FFFFFF"
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                
+                                onClicked: {
+                                    if (chatInput.text.trim().length > 0 && roomId > 0) {
+                                        networkClient.sendRoomChat(roomId, chatInput.text.trim())
+                                        chatInput.text = ""
+                                    }
+                                }
                             }
                         }
                     }
@@ -1203,6 +1347,15 @@ Item {
             console.log("Current roomId:", roomId)
             console.log("isJoiningRoom:", isJoiningRoom)
             
+            // Build a map of existing scores to preserve them
+            var existingScores = {}
+            for (var j = 0; j < membersList.length; j++) {
+                var existing = membersList[j]
+                if (existing.userId && existing.score > 0) {
+                    existingScores[existing.userId] = existing.score
+                }
+            }
+            
             var tempList = []
             var tempMap = {}
             
@@ -1215,6 +1368,12 @@ Item {
                 var username = member.username || member.nickname || ""
                 var score = member.score || 0
                 var eliminated = member.eliminated === true || member.eliminated === "true"
+                
+                // If NOTIFY_ROOM_UPDATE doesn't include score (=0), preserve existing score
+                if (score === 0 && existingScores[userId]) {
+                    score = existingScores[userId]
+                    console.log("Preserved existing score for userId=" + userId + ": " + score)
+                }
                 
                 console.log("Parsed member[" + i + "]:", "userId=" + userId, "username=" + username, "score=" + score, "eliminated=" + eliminated)
                 
@@ -1541,6 +1700,21 @@ Item {
         
         onRejected: {
             console.log("User cancelled exit")
+        }
+    }
+    
+    // Signal handler for room chat
+    Connections {
+        target: networkClient
+        function onRoomChatReceived(userId, username, message, timestamp) {
+            console.log("=== Room chat received ===")
+            console.log("userId:", userId, "username:", username, "message:", message)
+            
+            chatMessages.append({
+                "sender": username,
+                "message": message
+            })
+            console.log("Message appended, chatMessages.count:", chatMessages.count)
         }
     }
 }

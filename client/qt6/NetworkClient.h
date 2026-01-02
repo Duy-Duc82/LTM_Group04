@@ -48,6 +48,7 @@ public:
     Q_INVOKABLE void sendGetPendingRequests();
     Q_INVOKABLE void sendRespondFriend(qint64 fromUserId, bool accept);
     Q_INVOKABLE void sendSendDM(qint64 toUserId, const QString &message);
+    Q_INVOKABLE void sendRoomChat(qint64 roomId, const QString &message);
     Q_INVOKABLE void sendFetchOfflineMessages(qint64 friendId = 0);
     
     // Stats requests
@@ -104,6 +105,7 @@ signals:
     void respondFriendResult(bool success, const QString &error);
     void friendRequestReceived(qint64 fromUserId, const QString &fromUsername);
     void dmReceived(qint64 fromUserId, const QString &fromUsername, const QString &message, qint64 timestamp);
+    void roomChatReceived(qint64 userId, const QString &username, const QString &message, qint64 timestamp);
     void offlineMessagesReceived(const QJsonArray &messages);
     void friendStatusChanged(qint64 userId, const QString &status, qint64 roomId);
     

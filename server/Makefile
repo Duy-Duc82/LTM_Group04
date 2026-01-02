@@ -56,6 +56,7 @@ TEST_ROOMS_OBJ     = src/test/test_rooms.o
 TEST_ONEVN_OBJ     = src/test/test_onevn.o
 TEST_ONEVN_INTERACTIVE_OBJ = src/test/test_onevn_interactive.o
 TEST_HASH_PASSWORD_OBJ = src/test/test_hash_password.o
+TEST_ROOM_WAITING_CHAT_OBJ = src/test/test_room_waiting_chat.o
 
 # ==== TARGET MẶC ĐỊNH ====
 
@@ -75,7 +76,8 @@ all: $(BUILD_DIR)/server \
      $(BUILD_DIR)/test_rooms \
      $(BUILD_DIR)/test_onevn \
      $(BUILD_DIR)/test_onevn_interactive \
-     $(BUILD_DIR)/test_hash_password
+     $(BUILD_DIR)/test_hash_password \
+     $(BUILD_DIR)/test_room_waiting_chat
 
 # ==== SERVER ====
 
@@ -145,6 +147,10 @@ $(BUILD_DIR)/test_onevn_join: $(TEST_ONEVN_JOIN_OBJ)
 $(BUILD_DIR)/test_hash_password: $(UTIL_OBJS) $(TEST_HASH_PASSWORD_OBJ)
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(UTIL_OBJS) $(TEST_HASH_PASSWORD_OBJ) -o $@ $(LDFLAGS)
+
+$(BUILD_DIR)/test_room_waiting_chat: $(COMMON_OBJS) $(TEST_ROOM_WAITING_CHAT_OBJ)
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(COMMON_OBJS) $(TEST_ROOM_WAITING_CHAT_OBJ) -o $@ $(LDFLAGS)
 
 # ==== RULE BIÊN DỊCH CHUNG ====
 

@@ -13,6 +13,63 @@
 #include "dao/dao_chat.h"
 #include "utils/json.h"
 
+#define ROOM_CHAT_MAX_LENGTH 200
+#define ROOM_CHAT_RATE_LIMIT 5
+#define ROOM_CHAT_RATE_WINDOW_SECONDS 3
+#define ROOM_CHAT_RATE_TABLE_SIZE 256
+
+typedef struct {
+    int64_t user_id;
+    int64_t room_id;
+    time_t window_start;
+    int count;
+} RoomChatRateEntry;
+
+static RoomChatRateEntry g_room_chat_rates[ROOM_CHAT_RATE_TABLE_SIZE];
+
+// Simple per-user-per-room token bucket: 5 messages per 3 seconds
+static bool room_chat_rate_allow(int64_t user_id, int64_t room_id) {
+    time_t now = time(NULL);
+    size_t empty_idx = (size_t)-1;
+    size_t oldest_idx = 0;
+    time_t oldest_ts = g_room_chat_rates[0].window_start;
+
+    for (size_t i = 0; i < ROOM_CHAT_RATE_TABLE_SIZE; i++) {
+        RoomChatRateEntry *entry = &g_room_chat_rates[i];
+
+        if (entry->user_id == user_id && entry->room_id == room_id) {
+            // Found bucket for this user/room
+            if (now - entry->window_start >= ROOM_CHAT_RATE_WINDOW_SECONDS) {
+                entry->window_start = now;
+                entry->count = 0;
+            }
+            if (entry->count >= ROOM_CHAT_RATE_LIMIT) {
+                return false;
+            }
+            entry->count++;
+            return true;
+        }
+
+        if (entry->user_id == 0 && entry->room_id == 0 && empty_idx == (size_t)-1) {
+            empty_idx = i;
+        }
+
+        if (i == 0 || entry->window_start < oldest_ts) {
+            oldest_ts = entry->window_start;
+            oldest_idx = i;
+        }
+    }
+
+    // No existing bucket, create new one (prefer empty slot, else evict oldest)
+    size_t idx = (empty_idx != (size_t)-1) ? empty_idx : oldest_idx;
+    RoomChatRateEntry *entry = &g_room_chat_rates[idx];
+    entry->user_id = user_id;
+    entry->room_id = room_id;
+    entry->window_start = now;
+    entry->count = 1;
+    return true;
+}
+
 // Helper: Get online status string for a user
 const char *friends_get_user_status(int64_t user_id) {
     ClientSession *sess = session_manager_get_by_user_id(user_id);
@@ -591,6 +648,13 @@ static void handle_send_room_chat(ClientSession *sess, const char *payload) {
         protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "MISSING_MESSAGE");
         return;
     }
+
+    size_t msg_len = strlen(message);
+    if (msg_len == 0 || msg_len > ROOM_CHAT_MAX_LENGTH) {
+        free(message);
+        protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "MESSAGE_TOO_LONG");
+        return;
+    }
     
     // Get room_id from session or payload
     int64_t room_id = 0;
@@ -604,11 +668,33 @@ static void handle_send_room_chat(ClientSession *sess, const char *payload) {
         protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "NOT_IN_ROOM");
         return;
     }
+
+    // Enforce membership: session must match the target room
+    if (sess->room_id <= 0 || sess->room_id != room_id) {
+        free(message);
+        protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "NOT_IN_ROOM");
+        return;
+    }
     
     // Check if user is logged in
     if (sess->user_id <= 0) {
         free(message);
         protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "NOT_LOGGED_IN");
+        return;
+    }
+
+    // Only allow chat when room is waiting
+    room_status_t status = ROOM_STATUS_WAITING;
+    if (dao_rooms_get_status(room_id, &status) != 0 || status != ROOM_STATUS_WAITING) {
+        free(message);
+        protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "ROOM_NOT_WAITING");
+        return;
+    }
+
+    // Rate limit per user per room
+    if (!room_chat_rate_allow(sess->user_id, room_id)) {
+        free(message);
+        protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "RATE_LIMITED");
         return;
     }
     
@@ -618,13 +704,6 @@ static void handle_send_room_chat(ClientSession *sess, const char *payload) {
         free(message);
         fprintf(stderr, "[FRIENDS] SENDER_NOT_FOUND: user_id=%lld\n", (long long)sess->user_id);
         protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "SENDER_NOT_FOUND");
-        return;
-    }
-    
-    // Save message to database
-    if (dao_chat_send_room(sess->user_id, room_id, message) != 0) {
-        free(message);
-        protocol_send_error(sess, CMD_RES_SEND_ROOM_CHAT, "SAVE_MESSAGE_FAILED");
         return;
     }
     
@@ -643,7 +722,7 @@ static void handle_send_room_chat(ClientSession *sess, const char *payload) {
     (void)session_manager_broadcast_to_room(room_id, CMD_NOTIFY_ROOM_CHAT,
         chat_json, (uint32_t)strlen(chat_json));
     
-    // Always return success if saved to DB
+    // Return success after broadcasting
     protocol_send_simple_ok(sess, CMD_RES_SEND_ROOM_CHAT);
     
     free(esc_username);

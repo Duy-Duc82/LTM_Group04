@@ -66,6 +66,9 @@
 #define CMD_REQ_SEND_DM            0x0301
 #define CMD_RES_SEND_DM            0x0302
 #define CMD_NOTIFY_DM              0x0303
+#define CMD_REQ_SEND_ROOM_CHAT     0x0304
+#define CMD_RES_SEND_ROOM_CHAT     0x0305
+#define CMD_NOTIFY_ROOM_CHAT       0x0306
 #define CMD_REQ_FETCH_OFFLINE      0x0307
 #define CMD_RES_FETCH_OFFLINE      0x0308
 
@@ -905,6 +908,33 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
             }
             break;
 
+        case CMD_RES_SEND_ROOM_CHAT:
+            if (obj.contains("error")) {
+                emit errorOccurred("Gửi tin nhắn phòng thất bại: " + obj["error"].toString());
+            }
+            // Success - no action needed, notification will come via CMD_NOTIFY_ROOM_CHAT
+            break;
+
+        case CMD_NOTIFY_ROOM_CHAT:
+            qDebug() << "=== CMD_NOTIFY_ROOM_CHAT received ===";
+            qDebug() << "Object:" << obj;
+            if (obj.contains("user_id") && obj.contains("username") && obj.contains("message")) {
+                qint64 userId = obj["user_id"].toVariant().toLongLong();
+                QString username = obj["username"].toString();
+                QString message = obj["message"].toString();
+                qint64 timestamp = obj.contains("timestamp") ? obj["timestamp"].toVariant().toLongLong() : 0;
+                
+                qDebug() << "Parsed room chat - userId:" << userId;
+                qDebug() << "username:" << username;
+                qDebug() << "message:" << message;
+                qDebug() << "timestamp:" << timestamp;
+                
+                emit roomChatReceived(userId, username, message, timestamp);
+            } else {
+                qDebug() << "ERROR: CMD_NOTIFY_ROOM_CHAT missing required fields";
+            }
+            break;
+
         case CMD_RES_FETCH_OFFLINE:
             // Server may return array directly or wrapped in object
             if (doc.isArray()) {
@@ -1100,6 +1130,23 @@ void NetworkClient::sendSendDM(qint64 toUserId, const QString &message) {
 
     qDebug() << "Sending packet CMD_REQ_SEND_DM with JSON:" << json;
     sendPacket(CMD_REQ_SEND_DM, m_userId, json);
+}
+
+void NetworkClient::sendRoomChat(qint64 roomId, const QString &message) {
+    qDebug() << "=== sendRoomChat ===";
+    qDebug() << "roomId:" << roomId;
+    qDebug() << "message:" << message;
+    qDebug() << "myUserId:" << m_userId;
+    
+    QJsonObject obj;
+    obj["room_id"] = roomId;
+    obj["message"] = message;
+
+    QJsonDocument doc(obj);
+    QByteArray json = doc.toJson(QJsonDocument::Compact);
+
+    qDebug() << "Sending packet CMD_REQ_SEND_ROOM_CHAT with JSON:" << json;
+    sendPacket(CMD_REQ_SEND_ROOM_CHAT, m_userId, json);
 }
 
 void NetworkClient::sendFetchOfflineMessages(qint64 friendId) {
