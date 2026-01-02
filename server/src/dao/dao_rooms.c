@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <libpq-fe.h>
 #include "db.h"
 #include "utils/json.h"
@@ -68,14 +69,45 @@ int dao_rooms_leave(int64_t room_id, int64_t user_id) {
     return 0;
 }
 
+int dao_rooms_delete(int64_t room_id) {
+    PGconn *conn = db_get_conn();
+    if (!conn) return -1;
+
+    // Delete members first (due to FK constraint)
+    const char *sql1 = "DELETE FROM room_members WHERE room_id = $1;";
+    char buf_room[32];
+    snprintf(buf_room, sizeof(buf_room), "%ld", room_id);
+    const char *params[1] = { buf_room };
+
+    PGresult *res1 = PQexecParams(conn, sql1, 1, NULL, params, NULL, NULL, 0);
+    if (PQresultStatus(res1) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "[DAO_ROOMS] delete members error: %s\n", PQerrorMessage(conn));
+        PQclear(res1);
+        return -1;
+    }
+    PQclear(res1);
+
+    // Then delete room
+    const char *sql2 = "DELETE FROM room WHERE room_id = $1;";
+    PGresult *res2 = PQexecParams(conn, sql2, 1, NULL, params, NULL, NULL, 0);
+    if (PQresultStatus(res2) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "[DAO_ROOMS] delete room error: %s\n", PQerrorMessage(conn));
+        PQclear(res2);
+        return -1;
+    }
+    PQclear(res2);
+    return 0;
+}
+
 int dao_rooms_get_members(int64_t room_id, void **result_json) {
     PGconn *conn = db_get_conn();
     if (!conn) return -1;
 
     const char *sql =
-        "SELECT rm.user_id, u.username "
+        "SELECT rm.user_id, u.username, COALESCE(rm.eliminated, false) as eliminated "
         "FROM room_members rm JOIN users u ON u.user_id = rm.user_id "
-        "WHERE rm.room_id = $1;";
+        "WHERE rm.room_id = $1 "
+        "ORDER BY rm.user_id;";
 
     char buf_room[32];
     snprintf(buf_room, sizeof(buf_room), "%ld", room_id);
@@ -97,11 +129,14 @@ int dao_rooms_get_members(int64_t room_id, void **result_json) {
     for (int i = 0; i < rows; ++i) {
         const char *uid = PQgetvalue(res, i, 0);
         const char *uname = PQgetvalue(res, i, 1);
+        const char *eliminated_str = PQgetvalue(res, i, 2);
+        bool eliminated = strcmp(eliminated_str, "t") == 0 ? true : false;
 
         char *esc = util_json_escape(uname);
         if (!esc) esc = strdup("");
 
-        int need = snprintf(NULL, 0, "{\"user_id\": %s, \"username\": \"%s\"}", uid, esc);
+        const char *elim_json = eliminated ? "true" : "false";
+        int need = snprintf(NULL, 0, "{\"user_id\": %s, \"username\": \"%s\", \"eliminated\": %s}", uid, esc, elim_json);
         if (used + (size_t)need + 3 >= cap) {
             cap = (used + (size_t)need + 3) * 2;
             char *tmp = realloc(out, cap);
@@ -110,7 +145,7 @@ int dao_rooms_get_members(int64_t room_id, void **result_json) {
         }
 
         if (i > 0) out[used++] = ',';
-        used += snprintf(out + used, cap - used, "{\"user_id\": %s, \"username\": \"%s\"}", uid, esc);
+        used += snprintf(out + used, cap - used, "{\"user_id\": %s, \"username\": \"%s\", \"eliminated\": %s}", uid, esc, elim_json);
 
         free(esc);
     }
@@ -143,6 +178,45 @@ int dao_rooms_update_status(int64_t room_id, room_status_t status) {
         PQclear(res);
         return -1;
     }
+    PQclear(res);
+    return 0;
+}
+
+int dao_rooms_get_status(int64_t room_id, room_status_t *status) {
+    PGconn *conn = db_get_conn();
+    if (!conn) return -1;
+
+    const char *sql = "SELECT status FROM room WHERE room_id = $1;";
+
+    char buf_room[32];
+    snprintf(buf_room, sizeof(buf_room), "%ld", room_id);
+    const char *params[1] = { buf_room };
+
+    PGresult *res = PQexecParams(conn, sql, 1, NULL, params, NULL, NULL, 0);
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "[DAO_ROOMS] get_status error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        return -1;
+    }
+
+    const char *status_str = PQgetvalue(res, 0, 0);
+    if (strcmp(status_str, "WAITING") == 0) {
+        *status = ROOM_STATUS_WAITING;
+    } else if (strcmp(status_str, "STARTING") == 0) {
+        *status = ROOM_STATUS_STARTING;
+    } else if (strcmp(status_str, "IN_PROGRESS") == 0) {
+        *status = ROOM_STATUS_IN_PROGRESS;
+    } else if (strcmp(status_str, "FINISHED") == 0) {
+        *status = ROOM_STATUS_FINISHED;
+    } else {
+        *status = ROOM_STATUS_WAITING;  // default
+    }
+
     PQclear(res);
     return 0;
 }
@@ -345,6 +419,27 @@ int dao_rooms_list_waiting(void **result_json) {
     out[used++] = ']';
     out[used] = '\0';
     *result_json = out;
+    PQclear(res);
+    return 0;
+}
+
+int dao_rooms_mark_eliminated(int64_t room_id, int64_t user_id) {
+    PGconn *conn = db_get_conn();
+    if (!conn) return -1;
+
+    const char *sql = "UPDATE room_members SET eliminated = true WHERE room_id = $1 AND user_id = $2;";
+    char buf_room[32], buf_user[32];
+    snprintf(buf_room, sizeof(buf_room), "%ld", room_id);
+    snprintf(buf_user, sizeof(buf_user), "%ld", user_id);
+    const char *params[2] = { buf_room, buf_user };
+
+    PGresult *res = PQexecParams(conn, sql, 2, NULL, params, NULL, NULL, 0);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "[DAO_ROOMS] mark_eliminated error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
     PQclear(res);
     return 0;
 }

@@ -69,6 +69,22 @@ char *util_json_get_string(const char *json, const char *key) {
     return out;
 }
 
+int util_json_get_int(const char *json, const char *key, int *out) {
+    if (!json || !key || !out) return 0;
+    const char *p = strstr(json, key);
+    if (!p) return 0;
+    p = strchr(p, ':');
+    if (!p) return 0;
+    ++p;
+    // skip spaces
+    while (*p == ' ' || *p == '\t') ++p;
+    char *end;
+    long v = strtol(p, &end, 10);
+    if (p == end) return 0;
+    *out = (int)v;
+    return 1;
+}
+
 int util_json_get_int64(const char *json, const char *key, long long *out) {
     if (!json || !key || !out) return 0;
     const char *p = strstr(json, key);

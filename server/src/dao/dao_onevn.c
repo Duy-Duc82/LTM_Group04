@@ -137,18 +137,29 @@ int dao_onevn_get_user_history(int64_t user_id, void **json_history) {
     PGconn *conn = db_get_conn();
     if (!conn) return -1;
 
-    // Query sessions where user_id appears in players JSONB array
-    // Extract user's score and rank directly from JSONB
+    // Query sessions where user has played (based on onevn_player_answers)
+    // Use LEFT JOIN to get player data from JSONB if available, otherwise use player_answers data
     const char *sql =
-        "SELECT s.session_id, s.room_id, s.winner_id, s.status, "
+        "SELECT DISTINCT s.session_id, s.room_id, s.winner_id, s.status, "
         "       s.started_at, s.ended_at, "
-        "       COALESCE((p.player->>'score')::int, 0) as final_score, "
+        "       COALESCE((p.player->>'score')::int, a.total_score, 0) as final_score, "
         "       COALESCE((p.player->>'rank')::int, 0) as final_rank, "
         "       CASE WHEN s.winner_id = $1 THEN 1 ELSE 0 END as is_winner "
-        "FROM onevn_sessions s, "
-        "     jsonb_array_elements(s.players) AS p(player) "
+        "FROM onevn_sessions s "
+        "INNER JOIN ("
+        "    SELECT r.session_id, pa.user_id, SUM(pa.score_gained) as total_score "
+        "    FROM onevn_rounds r "
+        "    INNER JOIN onevn_player_answers pa ON r.round_id = pa.round_id "
+        "    WHERE pa.user_id = $1 "
+        "    GROUP BY r.session_id, pa.user_id"
+        ") a ON s.session_id = a.session_id "
+        "LEFT JOIN LATERAL ("
+        "    SELECT elem as player "
+        "    FROM jsonb_array_elements(s.players) elem "
+        "    WHERE (elem->>'user_id')::bigint = $1 "
+        "    LIMIT 1"
+        ") p ON true "
         "WHERE s.status = 'FINISHED' "
-        "  AND (p.player->>'user_id')::bigint = $1 "
         "ORDER BY s.ended_at DESC NULLS LAST, s.started_at DESC "
         "LIMIT 50;";
 

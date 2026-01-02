@@ -24,29 +24,10 @@ foreach ($dll in $qtDlls) {
     }
 }
 
-# Check if executable is newer than DLLs (might need redeploy)
-$exeTime = (Get-Item $exePath).LastWriteTime
-$needsRedeploy = $false
-if ($missingDlls.Count -eq 0) {
-    # Check if any DLL is older than executable
-    foreach ($dll in $qtDlls) {
-        $dllPath = Join-Path $buildDir $dll
-        if (Test-Path $dllPath) {
-            $dllTime = (Get-Item $dllPath).LastWriteTime
-            if ($exeTime -gt $dllTime) {
-                $needsRedeploy = $true
-                Write-Host "[INFO] Executable is newer than DLLs, redeployment recommended" -ForegroundColor Yellow
-                break
-            }
-        }
-    }
-}
-
-if ($missingDlls.Count -gt 0 -or $needsRedeploy) {
-    if ($missingDlls.Count -gt 0) {
-        Write-Host "[WARNING] Missing Qt DLLs detected!" -ForegroundColor Yellow
-        Write-Host "Missing: $($missingDlls -join ', ')" -ForegroundColor Yellow
-    }
+# Only deploy if DLLs are actually missing
+if ($missingDlls.Count -gt 0) {
+    Write-Host "[WARNING] Missing Qt DLLs detected!" -ForegroundColor Yellow
+    Write-Host "Missing: $($missingDlls -join ', ')" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Qt DLLs are required for QML applications." -ForegroundColor Cyan
     Write-Host "Attempting to deploy Qt libraries..." -ForegroundColor Cyan
@@ -73,7 +54,7 @@ if ($missingDlls.Count -gt 0 -or $needsRedeploy) {
         exit 1
     }
 } else {
-    Write-Host "[INFO] Qt DLLs are already deployed and up-to-date" -ForegroundColor Green
+    Write-Host "[INFO] Qt DLLs are already deployed" -ForegroundColor Green
     Write-Host ""
 }
 

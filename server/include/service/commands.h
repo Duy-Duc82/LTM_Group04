@@ -64,6 +64,7 @@
 #define CMD_RES_RESPOND_INVITE  0x0416    // Server → Client: Invite result
 #define CMD_REQ_LEAVE_ROOM      0x040B    // Client → Server: Leave room
 #define CMD_RES_LEAVE_ROOM      0x040C    // Server → Client: Leave room result
+#define CMD_NOTIFY_ROOM_CLOSED  0x0417    // Server → Client: Room closed by owner
 #define CMD_REQ_START_GAME      0x040D    // Client → Server: Host starts game
 #define CMD_RES_START_GAME      0x040E    // Server → Client: Start game result
 

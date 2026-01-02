@@ -213,10 +213,10 @@ static char *build_leaderboard_json(OneVNGameState *state) {
     for (int i = 0; i < state->player_count; i++) {
         int idx = indices[i];
         int rank = i + 1;
-        // No elimination - all players continue, eliminated always false
+        const char *eliminated_str = state->player_eliminated[idx] ? "true" : "false";
         int need = snprintf(NULL, 0, 
-            "{\"rank\":%d,\"user_id\":%ld,\"score\":%d,\"eliminated\":false}",
-            rank, state->player_ids[idx], state->player_scores[idx]);
+            "{\"rank\":%d,\"user_id\":%ld,\"score\":%d,\"eliminated\":%s}",
+            rank, state->player_ids[idx], state->player_scores[idx], eliminated_str);
         
         if (used + (size_t)need + 3 >= cap) {
             cap = (used + (size_t)need + 3) * 2;
@@ -227,8 +227,8 @@ static char *build_leaderboard_json(OneVNGameState *state) {
 
         if (i > 0) used += snprintf(json + used, cap - used, ",");
         used += snprintf(json + used, cap - used,
-            "{\"rank\":%d,\"user_id\":%ld,\"score\":%d,\"eliminated\":false}",
-            rank, state->player_ids[idx], state->player_scores[idx]);
+            "{\"rank\":%d,\"user_id\":%ld,\"score\":%d,\"eliminated\":%s}",
+            rank, state->player_ids[idx], state->player_scores[idx], eliminated_str);
     }
 
     used += snprintf(json + used, cap - used, "]");
@@ -541,13 +541,23 @@ static void handle_submit_answer_1vn(ClientSession *sess, const char *payload, u
         state->player_scores[player_idx]);
     protocol_send_response(sess, CMD_RES_SUBMIT_ANSWER_1VN, response, strlen(response));
     
-    // Check if all players have answered (no elimination check - all players continue)
-    // Use state->current_round as source of truth
+    // Check if all non-eliminated players have answered
+    // Skip eliminated players when checking if we should move to next question
     int all_answered = 1;
-    printf("[ONEVN] ========== Checking if all players answered round %d ==========\n", state->current_round);
+    int active_players = 0;  // Count of non-eliminated players
+    printf("[ONEVN] ========== Checking if all ACTIVE players answered round %d ==========\n", state->current_round);
     printf("[ONEVN] Player who just answered: user_id=%ld, player_idx=%d\n", 
            (long)sess->user_id, player_idx);
     for (int i = 0; i < state->player_count; i++) {
+        printf("[ONEVN] DEBUG: Checking player[%d], eliminated=%d\n", i, state->player_eliminated[i]);
+        // Skip eliminated players
+        if (state->player_eliminated[i]) {
+            printf("[ONEVN]   Player[%d] user_id=%ld: ELIMINATED (skipped)\n",
+                   i, (long)state->player_ids[i]);
+            continue;
+        }
+        
+        active_players++;
         int has_answered = (state->player_answered_round[i] == state->current_round);
         printf("[ONEVN]   Player[%d] user_id=%ld: answered_round=%ld, current_round=%d, has_answered=%s\n",
                i, (long)state->player_ids[i], (long)state->player_answered_round[i], 
@@ -556,12 +566,13 @@ static void handle_submit_answer_1vn(ClientSession *sess, const char *payload, u
             all_answered = 0;
         }
     }
-    printf("[ONEVN] ========== All answered: %s ==========\n", all_answered ? "YES" : "NO");
+    printf("[ONEVN] ========== Active players: %d, All answered: %s ==========\n", 
+           active_players, all_answered ? "YES" : "NO");
     fflush(stdout);
     
-    // If all players answered, end round and send next question
-    if (all_answered) {
-        printf("[ONEVN] ========== ALL PLAYERS ANSWERED - Scheduling next question in 2 seconds ==========\n");
+    // If all non-eliminated players answered (or no active players left), end round and send next question
+    if (all_answered && active_players > 0) {
+        printf("[ONEVN] ========== ALL ACTIVE PLAYERS ANSWERED - Scheduling next question in 2 seconds ==========\n");
         fflush(stdout);
         // Cancel timer
         if (state->timer_id >= 0) {
@@ -664,25 +675,36 @@ static void round_timeout_callback(int64_t context_id, void *user_data) {
     printf("[ONEVN] ========== TIMEOUT CALLBACK TRIGGERED for round %d ==========\n", state->current_round);
     fflush(stdout);
     
-    // Check if all players have already answered (race condition: all answered just before timeout)
+    // Check if all active (non-eliminated) players have already answered (race condition: all answered just before timeout)
     int all_answered = 1;
+    int active_players = 0;
     for (int i = 0; i < state->player_count; i++) {
+        // Skip eliminated players
+        if (state->player_eliminated[i]) {
+            continue;
+        }
+        active_players++;
         if (state->player_answered_round[i] != state->current_round) {
             all_answered = 0;
             break;
         }
     }
     
-    if (all_answered) {
-        printf("[ONEVN] WARNING: Timeout callback called but all players already answered (race condition)\n");
+    if (all_answered && active_players > 0) {
+        printf("[ONEVN] WARNING: Timeout callback called but all active players already answered (race condition)\n");
         printf("[ONEVN] Round already ended, ignoring timeout callback\n");
         fflush(stdout);
         return;
     }
     
-    // Mark all players who haven't answered as no points (but not eliminated)
-    // Also send timeout notification to each player who didn't answer
+    // Mark all non-eliminated players who haven't answered as no points (but not eliminated)
+    // Also send timeout notification to each non-eliminated player who didn't answer
     for (int i = 0; i < state->player_count; i++) {
+        // Skip eliminated players - they don't get timeout notifications
+        if (state->player_eliminated[i]) {
+            continue;
+        }
+        
         if (state->player_answered_round[i] != state->current_round) {
             // Timeout - no points for this round, reset consecutive correct
             state->player_consecutive_correct[i] = 0;
@@ -984,3 +1006,36 @@ void onevn_dispatch(ClientSession *sess, uint16_t cmd, const char *payload, uint
     }
 }
 
+// Mark a player as eliminated in the active game by room_id
+// This updates both in-memory game state and database
+int onevn_eliminate_player_by_room(int64_t room_id, int64_t user_id) {
+    // Find game state by room_id
+    OneVNGameState *state = get_game_state_by_room(room_id);
+    if (!state) {
+        printf("[ONEVN] onevn_eliminate_player_by_room: game state not found for room_id=%ld\n", (long)room_id);
+        return -1;
+    }
+
+    // Find player index
+    int player_idx = -1;
+    for (int i = 0; i < state->player_count; i++) {
+        if (state->player_ids[i] == user_id) {
+            player_idx = i;
+            break;
+        }
+    }
+
+    if (player_idx < 0) {
+        printf("[ONEVN] onevn_eliminate_player_by_room: player_id=%ld not found in game\n", (long)user_id);
+        return -1;
+    }
+
+    // Mark player as eliminated in game state (this is the critical fix!)
+    // This ensures build_leaderboard_json() will mark them as eliminated
+    state->player_eliminated[player_idx] = 1;
+    printf("[ONEVN] Marked player[%d] user_id=%ld as eliminated in game state\n", player_idx, (long)user_id);
+    printf("[ONEVN] DEBUG: player_eliminated[%d] = %d\n", player_idx, state->player_eliminated[player_idx]);
+    fflush(stdout);
+
+    return 0;
+}

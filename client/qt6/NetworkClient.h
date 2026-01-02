@@ -83,8 +83,9 @@ signals:
     
     // 1vN Mode signals
     void oneVNRoomCreated(qint64 roomId);
-    void oneVNRoomJoined(bool success, const QString &error);
+    void oneVNRoomJoined(bool success, qint64 roomId, const QString &error);
     void oneVNRoomUpdate(const QJsonArray &members);
+    void oneVNRoomClosed(qint64 roomId, const QString &reason);
     void oneVNGameStart1VN(qint64 sessionId, qint64 roomId, int totalRounds);
     void oneVNQuestion1VNReceived(int round, int totalRounds, const QString &difficulty,
                                    qint64 questionId, const QString &content,

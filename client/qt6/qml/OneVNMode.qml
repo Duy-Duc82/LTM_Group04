@@ -6,16 +6,19 @@ import "components"
 
 Item {
     id: oneVNMode
+    objectName: "oneVNMode"
     width: parent ? parent.width : 1000
     height: parent ? parent.height : 700
     
     property StackView stackView
     property string username: ""
+    property bool isJoiningRoom: false  // Set to true when joining from room list
     
     // Game state
     property int roomId: 0
     property real sessionId: 0  // Use real to handle large session IDs
     property bool isOwner: false
+    property int ownerId: 0  // Store the owner's user ID
     property int currentRound: 0
     property int totalRounds: 0
     property int myScore: 0
@@ -51,11 +54,27 @@ Item {
         }
     }
     
+    Component.onCompleted: {
+        // Determine which screen to show based on mode
+        console.log("=== OneVNMode.Component.onCompleted ===")
+        console.log("isJoiningRoom:", isJoiningRoom)
+        console.log("roomId:", roomId)
+        console.log("username:", username)
+        
+        if (!isJoiningRoom) {
+            console.log("OneVNMode loaded in create room mode")
+            screenStack.push(roomSelectionScreen)
+        } else {
+            console.log("OneVNMode loaded in join room mode, waiting for room joined signal")
+            // Will be switched to waitingRoomScreen by onOneVNRoomJoined handler
+        }
+    }
+    
     // Internal StackView for screens
     StackView {
         id: screenStack
         anchors.fill: parent
-        initialItem: roomSelectionScreen
+        // No initialItem - we'll push the appropriate screen in Component.onCompleted
     }
     
     // Room Selection Screen
@@ -521,92 +540,6 @@ Item {
                         }
                     }
                 }
-                
-                // Join Room Section
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 180
-                    radius: 20
-                    color: "#FFFFFF"
-                    border.color: "#E0E0E0"
-                    border.width: 1
-                    
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 24
-                        spacing: 20
-                        
-                        // Section title
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            
-                            Text {
-                                text: "🔗"
-                                font.pixelSize: 20
-                            }
-                            
-                            Text {
-                                Layout.fillWidth: true
-                                text: "Tham gia phòng"
-                                font.family: "Lexend"
-                                font.pixelSize: 20
-                                font.bold: true
-                                color: "#667eea"
-                            }
-                        }
-                        
-                        // Room ID input
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            
-                            Text {
-                                text: "Room ID:"
-                                font.family: "Lexend"
-                                font.pixelSize: 14
-                                color: "#333333"
-                            }
-                            
-                            CustomTextField {
-                                id: roomIdInput
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 45
-                                placeholderText: "Nhập Room ID"
-                            }
-                        }
-                        
-                        // Join button
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 50
-                            radius: 12
-                            color: "#2196F3"
-                            
-                            Text {
-                                anchors.centerIn: parent
-                                text: "Tham gia"
-                                font.family: "Lexend"
-                                font.pixelSize: 16
-                                font.bold: true
-                                color: "#FFFFFF"
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    var roomId = parseInt(roomIdInput.text)
-                                    if (roomId > 0) {
-                                        networkClient.sendJoinRoom(roomId)
-                                    } else {
-                                        // Show error
-                                        console.log("Invalid Room ID")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
                 }
             }
         }
@@ -633,7 +566,7 @@ Item {
             
             Text {
                 Layout.fillWidth: true
-                text: "Room ID: " + roomId
+                text: "Room ID: " + (roomId || "???")
                 font.family: "Lexend"
                 font.pixelSize: 16
                 color: Qt.rgba(1.0, 1.0, 1.0, 0.9)
@@ -674,7 +607,14 @@ Item {
                                 anchors.left: parent.left
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: member.username || "Người chơi " + (index + 1)
+                                text: {
+                                    var name = member.username || "Người chơi " + (index + 1)
+                                    // Add (owner) if this is the owner
+                                    if (ownerId > 0 && member.userId === ownerId) {
+                                        return name + " (owner)"
+                                    }
+                                    return name
+                                }
                                 font.family: "Lexend"
                                 font.pixelSize: 14
                                 color: "#333333"
@@ -749,8 +689,13 @@ Item {
                     onClicked: {
                         if (roomId > 0) {
                             networkClient.sendLeaveRoom(roomId)
-                            screenStack.replace(roomSelectionScreen)
+                            // Pop back to HomeScreen instead of replacing with roomSelectionScreen
+                            if (stackView) {
+                                stackView.pop(null)  // Pop all the way back to root (HomeScreen)
+                            }
                             roomId = 0
+                            isOwner = false
+                            ownerId = 0
                         }
                     }
                 }
@@ -777,6 +722,35 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 20
+                    
+                    // Exit button
+                    Button {
+                        text: "✕ Thoát"
+                        font.family: "Lexend"
+                        font.pixelSize: 14
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 35
+                        
+                        background: Rectangle {
+                            color: parent.hovered ? "#e53935" : "#f44336"
+                            radius: 8
+                        }
+                        
+                        contentItem: Text {
+                            text: parent.text
+                            font: parent.font
+                            color: "white"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        
+                        onClicked: {
+                            // Show confirmation dialog
+                            exitConfirmDialog.open()
+                        }
+                    }
+                    
+                    Item { Layout.fillWidth: true }  // Spacer
                     
                     Text {
                         text: "Câu " + currentRound + "/" + totalRounds
@@ -956,7 +930,7 @@ Item {
                             property bool isEliminated: member.eliminated || false
                             property bool isMe: member.userId === networkClient.getUserId()
                             
-                            color: isEliminated ? "#FFCDD2" : (isMe ? "#C8E6C9" : "#F5F5F5")
+                            color: isEliminated ? "#FFEBEE" : (isMe ? "#C8E6C9" : "#F5F5F5")
                             
                             RowLayout {
                                 anchors.fill: parent
@@ -967,7 +941,8 @@ Item {
                                     font.family: "Lexend"
                                     font.pixelSize: 14
                                     font.bold: true
-                                    color: "#333333"
+                                    color: isEliminated ? "#D32F2F" : "#333333"
+                                    font.strikeout: isEliminated
                                 }
                                 
                                 Text {
@@ -975,7 +950,8 @@ Item {
                                     text: member.username || "Người chơi " + (index + 1)
                                     font.family: "Lexend"
                                     font.pixelSize: 14
-                                    color: "#333333"
+                                    color: isEliminated ? "#D32F2F" : "#333333"
+                                    font.strikeout: isEliminated
                                     elide: Text.ElideRight
                                 }
                                 
@@ -984,7 +960,8 @@ Item {
                                     font.family: "Lexend"
                                     font.pixelSize: 14
                                     font.bold: true
-                                    color: "#4CAF50"
+                                    color: isEliminated ? "#D32F2F" : "#4CAF50"
+                                    font.strikeout: isEliminated
                                 }
                             }
                         }
@@ -1184,15 +1161,38 @@ Item {
         function onOneVNRoomCreated(newRoomId) {
             roomId = newRoomId
             isOwner = true
-            screenStack.replace(waitingRoomScreen)
+            ownerId = networkClient.getUserId()  // Set owner to current user
+            // Use push if stack is empty, otherwise replace
+            if (screenStack.depth === 0) {
+                screenStack.push(waitingRoomScreen)
+            } else {
+                screenStack.replace(waitingRoomScreen)
+            }
             toastMessage.show("Đã tạo phòng: " + roomId, "#4CAF50")
         }
         
-        function onOneVNRoomJoined(success, error) {
+        function onOneVNRoomJoined(success, newRoomId, error) {
+            console.log("=== OneVNMode.onOneVNRoomJoined ===")
+            console.log("success:", success)
+            console.log("newRoomId:", newRoomId)
+            console.log("error:", error)
+            console.log("screenStack.depth:", screenStack.depth)
+            
             if (success) {
-                screenStack.replace(waitingRoomScreen)
+                roomId = newRoomId
+                console.log("Room ID set to:", roomId)
+                
+                // Use push if stack is empty (joining from room list), otherwise replace
+                if (screenStack.depth === 0) {
+                    console.log("Stack is empty, pushing waitingRoomScreen")
+                    screenStack.push(waitingRoomScreen)
+                } else {
+                    console.log("Stack has items, replacing with waitingRoomScreen")
+                    screenStack.replace(waitingRoomScreen)
+                }
                 toastMessage.show("Đã tham gia phòng", "#4CAF50")
             } else {
+                console.log("Join failed:", error)
                 toastMessage.show("Không thể tham gia phòng: " + error, "#FF5252")
             }
         }
@@ -1200,22 +1200,33 @@ Item {
         function onOneVNRoomUpdate(members) {
             console.log("=== onOneVNRoomUpdate ===")
             console.log("Members array length:", members.length)
+            console.log("Current roomId:", roomId)
+            console.log("isJoiningRoom:", isJoiningRoom)
+            
             var tempList = []
             var tempMap = {}
             
             for (var i = 0; i < members.length; i++) {
                 var member = members[i]
+                console.log("RAW member[" + i + "]:", JSON.stringify(member))
+                
                 // Handle both QJsonObject (from C++) and plain JS object
                 var userId = member.user_id || member.userId || 0
                 var username = member.username || member.nickname || ""
                 var score = member.score || 0
-                var eliminated = member.eliminated || false
+                var eliminated = member.eliminated === true || member.eliminated === "true"
                 
-                console.log("Member", i, ":", userId, username, score, eliminated)
+                console.log("Parsed member[" + i + "]:", "userId=" + userId, "username=" + username, "score=" + score, "eliminated=" + eliminated)
                 
                 // Store username mapping if available
                 if (username && userId) {
                     tempMap[userId] = username
+                }
+                
+                // First member is the owner (owner joins first when creating room)
+                if (i === 0 && ownerId === 0) {
+                    ownerId = userId
+                    console.log("Owner detected:", userId, username)
                 }
                 
                 tempList.push({
@@ -1240,6 +1251,34 @@ Item {
             })
             membersList = tempList
             console.log("Updated membersList length:", membersList.length)
+            
+            // If we're joining a room and haven't switched to waiting screen yet
+            // This handles the case where onOneVNRoomJoined was called before Component.onCompleted
+            if (isJoiningRoom && screenStack.depth === 0 && membersList.length > 0) {
+                console.log("Auto-switching to waitingRoomScreen after receiving member update")
+                screenStack.push(waitingRoomScreen)
+            }
+        }
+        
+        function onOneVNRoomClosed(roomId, reason) {
+            console.log("=== onOneVNRoomClosed ===")
+            console.log("Room closed - RoomId:", roomId, "Reason:", reason)
+            
+            if (reason === "owner_left") {
+                toastMessage.show("Chủ phòng đã rời. Phòng đã đóng.", "#FF9800")
+            } else {
+                toastMessage.show("Phòng đã đóng.", "#FF9800")
+            }
+            
+            // Reset room state
+            roomId = 0
+            ownerId = 0
+            isOwner = false
+            membersList = []
+            userIdToUsername = {}
+            
+            // Pop back to home screen
+            stackView.pop(null)
         }
         
         function onOneVNGameStart1VN(gameSessionId, gameRoomId, rounds) {
@@ -1330,15 +1369,27 @@ Item {
         }
         
         function onOneVNElimination(userId, round) {
+            console.log("=== onOneVNElimination ===")
+            console.log("User eliminated:", userId, "Round:", round)
+            
             // Update members list to mark eliminated
+            var found = false
             for (var i = 0; i < membersList.length; i++) {
                 if (membersList[i].userId === userId) {
+                    console.log("Found user in membersList at index", i)
                     membersList[i].eliminated = true
+                    found = true
                     break
                 }
             }
+            
+            if (!found) {
+                console.log("User not found in membersList - might have already been removed")
+            }
+            
             // Force UI update
             membersList = membersList
+            console.log("Updated membersList with elimination")
         }
         
         function onOneVNGameOver1VN(winnerId, leaderboard) {
@@ -1447,5 +1498,49 @@ Item {
         var timeLeft = timeRemaining
         networkClient.sendSubmitAnswer1VN(sessionId, currentRound, answer, timeLeft)
     }
+    
+    // Exit Confirmation Dialog
+    Dialog {
+        id: exitConfirmDialog
+        title: "Xác nhận thoát"
+        modal: true
+        anchors.centerIn: parent
+        width: 400
+        
+        standardButtons: Dialog.Yes | Dialog.No
+        
+        Label {
+            text: "Bạn có chắc muốn thoát khỏi trận đấu?\n\nBạn sẽ bị loại và tính là thua."
+            font.family: "Lexend"
+            font.pixelSize: 14
+            wrapMode: Text.WordWrap
+            width: parent.width
+        }
+        
+        onAccepted: {
+            console.log("User confirmed exit from game")
+            toastMessage.show("Đang rời khỏi trận đấu...", "#FF9800")
+            
+            // Send leave room request
+            networkClient.sendLeaveRoom(roomId)
+            
+            // Reset state and return to home
+            questionTimer.stop()
+            scoreMessageTimer.stop()
+            sessionId = 0
+            roomId = 0
+            ownerId = 0
+            isOwner = false
+            eliminated = true
+            membersList = []
+            userIdToUsername = {}
+            
+            // Pop back to home
+            stackView.pop(null)
+        }
+        
+        onRejected: {
+            console.log("User cancelled exit")
+        }
+    }
 }
-

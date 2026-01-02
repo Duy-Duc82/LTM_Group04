@@ -11,6 +11,9 @@ char *util_json_escape(const char *s);
 // Returns newly allocated string with the value or NULL if not found.
 char *util_json_get_string(const char *json, const char *key);
 
+// Get integer value for key (e.g. "count": 5). Returns 1 on success and stores value in out, 0 otherwise.
+int util_json_get_int(const char *json, const char *key, int *out);
+
 // Get integer value for key (e.g. "friend_id": 123). Returns 1 on success and stores value in out, 0 otherwise.
 int util_json_get_int64(const char *json, const char *key, long long *out);
 

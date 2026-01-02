@@ -39,13 +39,34 @@ Item {
             console.log("Updated roomsList length:", roomsList.length)
         }
         
-        function onOneVNRoomJoined(success, errorMsg) {
+        function onOneVNRoomJoined(success, newRoomId, errorMsg) {
             if (success) {
-                // Navigate to OneVNMode
-                if (stackView) {
+                console.log("=== OneVNRoomListScreen.onOneVNRoomJoined ===")
+                console.log("newRoomId:", newRoomId)
+                
+                // Check if OneVNMode is already in the stack
+                var oneVNModeIndex = -1
+                for (var i = 0; i < stackView.depth; i++) {
+                    var item = stackView.get(i)
+                    if (item && item.objectName === "oneVNMode") {
+                        oneVNModeIndex = i
+                        break
+                    }
+                }
+                
+                if (oneVNModeIndex >= 0) {
+                    // OneVNMode already exists, just pop back to it
+                    var oneVNMode = stackView.get(oneVNModeIndex)
+                    oneVNMode.roomId = newRoomId
+                    stackView.pop(oneVNMode)
+                } else {
+                    // Push new OneVNMode instance with isJoiningRoom flag and roomId
+                    console.log("Pushing OneVNMode with roomId:", newRoomId)
                     stackView.push("OneVNMode.qml", {
                         "stackView": stackView,
-                        "username": username
+                        "username": username,
+                        "isJoiningRoom": true,
+                        "roomId": newRoomId
                     })
                 }
             } else {

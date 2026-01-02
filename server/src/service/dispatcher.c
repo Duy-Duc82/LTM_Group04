@@ -40,8 +40,14 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
         case 0x04: // Room
             switch (cmd) {
                 case CMD_REQ_CREATE_ROOM: {
+                    // Parse question config from payload
+                    int easy_count = 5, medium_count = 5, hard_count = 5;  // defaults
+                    util_json_get_int(payload, "easy_count", &easy_count);
+                    util_json_get_int(payload, "medium_count", &medium_count);
+                    util_json_get_int(payload, "hard_count", &hard_count);
+                    
                     int64_t room_id;
-                    if (dao_rooms_create(sess->user_id, &room_id) == 0) {
+                    if (dao_rooms_create_with_config(sess->user_id, easy_count, medium_count, hard_count, &room_id) == 0) {
                         // Set room_id in session
                         session_manager_set_room(sess, room_id);
                         
@@ -101,13 +107,105 @@ void dispatcher_handle_packet(ClientSession *sess, uint16_t cmd, const char *pay
                 case CMD_REQ_LEAVE_ROOM: {
                     long long room_id = 0; // parse
                     util_json_get_int64(payload, "room_id", &room_id);
-                    if (dao_rooms_leave(room_id, sess->user_id) == 0) {
+                    
+                    printf("[DISPATCHER] CMD_REQ_LEAVE_ROOM: user_id=%ld, room_id=%lld\n", 
+                           (long)sess->user_id, (long long)room_id);
+                    fflush(stdout);
+                    
+                    // Check room status
+                    room_status_t room_status;
+                    int has_status = (dao_rooms_get_status(room_id, &room_status) == 0);
+                    
+                    printf("[DISPATCHER] Room status: has_status=%d, status=%d\n", has_status, room_status);
+                    fflush(stdout);
+                    
+                    // Check if user is the room owner
+                    int64_t owner_id = 0;
+                    int is_owner = (dao_rooms_get_owner(room_id, &owner_id) == 0 && owner_id == sess->user_id);
+                    
+                    // During game (IN_PROGRESS or STARTING): treat everyone equally - just eliminate
+                    if (has_status && (room_status == ROOM_STATUS_IN_PROGRESS || room_status == ROOM_STATUS_STARTING)) {
+                        printf("[DISPATCHER] Player user_id=%ld leaving room_id=%lld during game\n", 
+                               (long)sess->user_id, (long long)room_id);
+                        fflush(stdout);
+                        
+                        // Mark player as eliminated in game state (in-memory)
+                        // This ensures leaderboard will show correct eliminated status
+                        int eliminated_result = onevn_eliminate_player_by_room(room_id, sess->user_id);
+                        printf("[DISPATCHER] onevn_eliminate_player_by_room returned: %d\n", eliminated_result);
+                        fflush(stdout);
+                        
+                        // Also mark in database for persistence
+                        dao_rooms_mark_eliminated(room_id, sess->user_id);
+                        
+                        // Remove session from room so broadcast won't send to this player anymore
+                        session_manager_set_room(sess, 0);
+                        
                         char response_buf[128];
                         snprintf(response_buf, sizeof(response_buf), 
-                            "{\"room_id\": %lld, \"status\": \"left\"}", room_id);
+                            "{\"room_id\": %lld, \"status\": \"eliminated\"}", room_id);
                         protocol_send_response(sess, CMD_RES_LEAVE_ROOM, response_buf, strlen(response_buf));
-                    } else {
-                        protocol_send_error(sess, CMD_RES_LEAVE_ROOM, "LEAVE_ROOM_FAILED");
+                        
+                        // Broadcast elimination notification 
+                        char elim_buf[128];
+                        snprintf(elim_buf, sizeof(elim_buf), 
+                            "{\"user_id\": %lld, \"round\": 0}", sess->user_id);
+                        session_manager_broadcast_to_room(room_id, CMD_NOTIFY_ELIMINATION, 
+                                                          elim_buf, strlen(elim_buf));
+                        
+                        // Get and broadcast updated members list with eliminated status
+                        void *members_json = NULL;
+                        if (dao_rooms_get_members(room_id, &members_json) == 0) {
+                            char notify_buf[2048];
+                            snprintf(notify_buf, sizeof(notify_buf), 
+                                "{\"members\": %s}", (char*)members_json);
+                            session_manager_broadcast_to_room(room_id, CMD_NOTIFY_ROOM_UPDATE, 
+                                                              notify_buf, strlen(notify_buf));
+                            printf("[DISPATCHER] Broadcast ROOM_UPDATE with members: %s\n", (char*)members_json);
+                            fflush(stdout);
+                            free(members_json);
+                        }
+                    }
+                    // Before game starts (WAITING): owner leaving = delete room
+                    else if (is_owner && has_status && room_status == ROOM_STATUS_WAITING) {
+                        // Owner leaving before game starts → Delete entire room
+                        if (dao_rooms_delete(room_id) == 0) {
+                            char response_buf[128];
+                            snprintf(response_buf, sizeof(response_buf), 
+                                "{\"room_id\": %lld, \"status\": \"room_closed\"}", room_id);
+                            protocol_send_response(sess, CMD_RES_LEAVE_ROOM, response_buf, strlen(response_buf));
+                            
+                            // Notify all remaining members in room that it was closed
+                            char notify_buf[256];
+                            snprintf(notify_buf, sizeof(notify_buf), 
+                                "{\"room_id\": %lld, \"reason\": \"owner_left\"}", room_id);
+                            session_manager_broadcast_to_room(room_id, CMD_NOTIFY_ROOM_CLOSED, 
+                                                              notify_buf, strlen(notify_buf));
+                        } else {
+                            protocol_send_error(sess, CMD_RES_LEAVE_ROOM, "DELETE_ROOM_FAILED");
+                        }
+                    }
+                    // Regular member leaving before game starts
+                    else {
+                        if (dao_rooms_leave(room_id, sess->user_id) == 0) {
+                            char response_buf[128];
+                            snprintf(response_buf, sizeof(response_buf), 
+                                "{\"room_id\": %lld, \"status\": \"left\"}", room_id);
+                            protocol_send_response(sess, CMD_RES_LEAVE_ROOM, response_buf, strlen(response_buf));
+                            
+                            // Notify other members about the departure
+                            void *members_json = NULL;
+                            if (dao_rooms_get_members(room_id, &members_json) == 0) {
+                                char notify_buf[2048];
+                                snprintf(notify_buf, sizeof(notify_buf), 
+                                    "{\"members\": %s}", (char*)members_json);
+                                session_manager_broadcast_to_room(room_id, CMD_NOTIFY_ROOM_UPDATE, 
+                                                                  notify_buf, strlen(notify_buf));
+                                free(members_json);
+                            }
+                        } else {
+                            protocol_send_error(sess, CMD_RES_LEAVE_ROOM, "LEAVE_ROOM_FAILED");
+                        }
                     }
                 } break;
                 case CMD_REQ_LIST_ROOMS: {

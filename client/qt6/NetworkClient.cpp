@@ -31,6 +31,7 @@
 #define CMD_NOTIFY_ROOM_UPDATE     0x0411
 #define CMD_REQ_LEAVE_ROOM         0x040B
 #define CMD_RES_LEAVE_ROOM         0x040C
+#define CMD_NOTIFY_ROOM_CLOSED     0x0417
 #define CMD_REQ_START_GAME         0x040D
 #define CMD_RES_START_GAME         0x040E
 
@@ -83,7 +84,6 @@
 #define CMD_RES_GET_REPLAY_DETAILS  0x070C
 #define CMD_REQ_LIST_ROOMS  0x0405
 #define CMD_RES_LIST_ROOMS  0x0406
-#define CMD_NOTIFY_ROOM_UPDATE  0x0407
 
 NetworkClient::NetworkClient(QObject *parent)
     : QObject(parent)
@@ -645,14 +645,15 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
 
         case CMD_RES_JOIN_ROOM:
             if (obj.contains("error")) {
-                emit oneVNRoomJoined(false, obj["error"].toString());
+                emit oneVNRoomJoined(false, 0, obj["error"].toString());
             } else {
+                qint64 roomId = obj.value("room_id").toVariant().toLongLong();
                 // If response contains members, emit room update
                 if (obj.contains("members")) {
                     QJsonArray members = obj["members"].toArray();
                     emit oneVNRoomUpdate(members);
                 }
-                emit oneVNRoomJoined(true, "");
+                emit oneVNRoomJoined(true, roomId, "");
             }
             break;
 
@@ -756,6 +757,15 @@ void NetworkClient::parsePacket(quint16 cmd, const QByteArray &jsonData)
                 // OneVNWindow will handle it based on current state
                 QJsonArray leaderboard = obj["leaderboard"].toArray();
                 emit oneVNRoomUpdate(leaderboard);
+            }
+            break;
+
+        case CMD_NOTIFY_ROOM_CLOSED:
+            {
+                qint64 roomId = obj["room_id"].toVariant().toLongLong();
+                QString reason = obj["reason"].toString();
+                qDebug() << "Room closed notification:" << roomId << "Reason:" << reason;
+                emit oneVNRoomClosed(roomId, reason);
             }
             break;
 
