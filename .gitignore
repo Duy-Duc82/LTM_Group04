@@ -1,0 +1,9 @@
+# Ignore Markdown files
+*.md
+
+# Ignore PDF files
+*.pdf
+
+# Ignore Shell script files
+*.sh
+

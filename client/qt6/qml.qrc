@@ -1,0 +1,30 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/MillionaireClient">
+        <file>qml/main.qml</file>
+        <file>qml/SplashScreen.qml</file>
+        <file>qml/Signin.qml</file>
+        <file>qml/Signup.qml</file>
+        <file>qml/GameModeSelection.qml</file>
+        <file>qml/HomeScreen.qml</file>
+        <file>qml/LeaderboardScreen.qml</file>
+        <file>qml/ProfileScreen.qml</file>
+        <file>qml/FriendsList.qml</file>
+        <file>qml/ChatScreen.qml</file>
+        <file>qml/QuickModeGame.qml</file>
+        <file>qml/OneVNMode.qml</file>
+        <file>qml/OneVNHistoryScreen.qml</file>
+        <file>qml/OneVNReplayScreen.qml</file>
+        <file>qml/OneVNRoomListScreen.qml</file>
+        <file>qml/InviteNotificationDialog.qml</file>
+        <file>qml/WinScreen.qml</file>
+        <file>qml/LoseScreen.qml</file>
+        <file>qml/components/CustomTextField.qml</file>
+        <file>qml/components/ToastMessage.qml</file>
+        <file>qml/components/CustomCheckBox.qml</file>
+        <file>qml/components/PasswordStrengthIndicator.qml</file>
+        <file>qml/components/SocialIconButton.qml</file>
+        <file>qml/components/GameOptionButton.qml</file>
+    </qresource>
+</RCC>
+
